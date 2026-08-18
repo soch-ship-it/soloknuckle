@@ -41,4 +41,61 @@ describe('scanDiffForSecretsAndPII', () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('PII');
   });
+
+  it('should detect AWS access keys', () => {
+    const diff = `+ const accessKey = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect GitHub personal access tokens', () => {
+    const diff = `+ const token = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect GitHub OAuth tokens', () => {
+    const diff = `+ const token = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect private keys', () => {
+    const diff = `+ const key = "-----BEGIN RSA PRIVATE KEY-----";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect GCP API keys', () => {
+    const diff = `+ const apiKey = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect JWTs', () => {
+    const diff = `+ const token = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect Slack user tokens', () => {
+    const diff = `+ const token = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect API key assignments', () => {
+    const diff = `+ const api_key = "REDACTED";`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should not flag benign strings as secrets', () => {
+    const diff = `+ const message = "Hello World";\n+ console.log("test");\n+ import fs from 'fs';`;
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(0);
+  });
 });
