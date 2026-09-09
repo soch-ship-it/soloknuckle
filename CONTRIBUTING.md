@@ -51,7 +51,6 @@ soloknuckle/
 │   ├── rollback.ts   # Sentry webhook + auto-rollback
 │   ├── mcp-server.ts # MCP server (stdio)
 │   └── ...
-├── ui/               # React dashboard
 ├── test/             # Test files (vitest)
 └── index.html        # Landing page
 ```

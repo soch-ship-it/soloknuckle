@@ -15,5 +15,5 @@
     "sourceMap": true
   },
   "include": ["cli/**/*"],
-  "exclude": ["node_modules", "dist", "ui", "test"]
+  "exclude": ["node_modules", "dist", "test"]
 }

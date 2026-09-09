@@ -53,42 +53,11 @@ Catches the bugs that AI leaves behind — secrets in code, destructive commands
 │  │  │  registry) │  │  human)    │  │  revert)   │            │   │
 │  │  └────────────┘  └────────────┘  └────────────┘            │   │
 │  │                                                              │   │
-│  │  ┌────────────┐  ┌────────────┐                             │   │
-│  │  │ personas   │  │ llm-client │                             │   │
-│  │  │ (bounded   │  │ (multi-    │                             │   │
-│  │  │  context)  │  │  provider) │                             │   │
-│  │  └────────────┘  └────────────┘                             │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                     EXPRESS API                              │   │
-│  │                                                              │   │
-│  │  GET  /api/config         →  Provider configuration          │   │
-│  │  POST /api/config         →  Save provider settings          │   │
-│  │  POST /api/sandbox        →  Safe command execution          │   │
-│  │  POST /api/score          →  Project health analysis         │   │
-│  │  POST /api/audit          →  LLM code review                │   │
-│  │  POST /api/pr/description →  Auto PR description             │   │
-│  │  GET  /api/telemetry      →  AI vs human stats               │   │
-│  │  POST /api/persona/write  →  Write persona files             │   │
-│  │  POST /api/persona/delete →  Delete persona files            │   │
-│  │  POST /api/capabilities   →  Machine-readable tool list      │   │
-│  │                                                              │   │
-│  │  Security: Rate limiting, CORS, body size limits             │   │
-│  └─────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐   │
-│  │                  VITE + REACT DASHBOARD                     │   │
-│  │                                                              │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │   │
-│  │  │ Provider │  │ Project  │  │ Command  │                  │   │
-│  │  │ Settings │  │ Health   │  │ Firewall │                  │   │
-│  │  └──────────┘  └──────────┘  └──────────┘                  │   │
-│  │                                                              │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │   │
-│  │  │ LLM      │  │ PR       │  │ Telemetry│                  │   │
-│  │  │ Audit    │  │ Describer│  │ Dashboard│                  │   │
-│  │  └──────────┘  └──────────┘  └──────────┘                  │   │
+│  │  ┌─────────────────────────────────────────────────────┐   │   │
+│  │  │          MCP SERVER (agents) + WEBHOOKS              │   │   │
+│  │  │  POST /webhooks/rollback → disable a feature flag     │   │   │
+│  │  │  POST /webhooks/sentry   → auto-revert AI culprit     │   │   │
+│  │  └─────────────────────────────────────────────────────┘   │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -96,11 +65,11 @@ Catches the bugs that AI leaves behind — secrets in code, destructive commands
                          │   DATA FLOW     │
                          └─────────────────┘
 
-User/Agent ──▶ CLI Command ──▶ Core Module ──▶ Express API ──▶ Dashboard
+User/Agent ──▶ CLI Command ──▶ Core Module ──▶ Git Hooks / Webhooks
                   │                │                │
                   ▼                ▼                ▼
-              Git Hooks      File System      Browser UI
-              (pre-commit)   (~/.soloknuckle/)  (localhost:3000)
+              Pre-flight       Filesystem       Rollback Daemon
+              checks           (~/.soloknuckle/)  auto-revert
 ```
 
 ---
@@ -118,8 +87,6 @@ npx soloknuckle check
 # Enforce hard gates in CI (exits non-zero on failure)
 npx soloknuckle check --strict
 
-# Launch visual dashboard
-npx soloknuckle ui
 ```
 
 **Recommended CI setup:** Add `npx soloknuckle check --strict` to your CI pipeline. It enforces minimum thresholds for security (≥70), testing (≥70), reliability (≥60), and supply chain (≥50). Merges that fail these gates are blocked automatically.
@@ -139,7 +106,6 @@ npx soloknuckle ui
 | `npx soloknuckle score` | Project health 0-100 across 7 domains | Numeric score + breakdown |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
-| `npx soloknuckle ui` | Launches web dashboard | http://localhost:3001 |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
 | `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories | Persona files |
 | `npx soloknuckle capabilities` | Machine-readable command list for AI agents | JSON output |
@@ -246,8 +212,8 @@ npx soloknuckle config
 | Destructive commands | Firewall blocks `rm -rf`, `git push --force`, SQL drops |
 | Path traversal | Persona system validates directory boundaries |
 | API key exposure | Keys stored locally, never committed to git |
-| Rate limiting | Prevents abuse of LLM API endpoints |
-| CORS attacks | Restricted to localhost origins only |
+| Bad merges | Rollback daemon auto-reverts AI-authored bugs |
+| Unpinned deps | Dependency Hawk surfaces transitive audit warnings |
 
 ### Command Firewall Patterns
 
@@ -270,7 +236,6 @@ The interceptor blocks these destructive patterns:
 soloknuckle/
 ├── cli/                          # Core CLI modules
 │   ├── index.ts                  # Entry point + command router
-│   ├── app.ts                    # Express API server
 │   ├── config.ts                 # Configuration + provider registry
 │   ├── scanner.ts                # Secret detection engine
 │   ├── interceptor.ts            # Command firewall
@@ -287,15 +252,7 @@ soloknuckle/
 │   ├── rollback.ts               # Auto-rollback daemon
 │   ├── personas.ts               # Agent bounded contexts
 │   ├── pr-enforcer.ts            # PR description generator
-│   └── vite-plugin.ts            # Vite build-time integration
-├── ui/                           # React dashboard
-│   ├── src/
-│   │   ├── App.jsx               # Main dashboard component
-│   │   ├── index.css             # Neo-brutalist styling
-│   │   └── main.jsx              # React entry point
-│   └── index.html                # HTML shell
 ├── test/                         # Test suite
-│   ├── api.test.ts               # API endpoint tests
 │   ├── config.test.ts            # Config loading tests
 │   ├── interceptor.test.ts       # Firewall pattern tests
 │   ├── llm-client.test.ts        # LLM client tests
@@ -345,7 +302,6 @@ npm run test -- --coverage
 | `test/personas.test.ts` | 7 | 100% |
 | `test/telemetry.test.ts` | 7 | 100% |
 | `test/llm-client.test.ts` | 22 | 86% |
-| `test/api.test.ts` | 35 | 79% |
 | `test/config.test.ts` | 21 | 88% |
 | `test/scorer.test.ts` | 27 | 80% |
 | `test/scanner.test.ts` | 15 | 100% |
@@ -375,26 +331,6 @@ npx soloknuckle check
 # If installed as dev dependency
 npm update soloknuckle --save-dev
 ```
-
----
-
-## Vite Plugin (Invisible Integration)
-
-Use Soloknuckle as a build-time guardian without running CLI commands:
-
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import soloknucklePlugin from 'soloknuckle/cli/vite-plugin';
-
-export default defineConfig({
-  plugins: [
-    soloknucklePlugin() // Runs quality gates on every build
-  ]
-});
-```
-
----
 
 ## MCP Server (Model Context Protocol)
 
@@ -482,9 +418,6 @@ Soloknuckle is built with security-first principles:
 | **Local-only** | Nothing sent to external services. Config stays in `~/.soloknuckle/`; telemetry/watch/budget data stays in the project's `.soloknuckle/` |
 | **No telemetry** | Soloknuckle does not phone home |
 | **No PII collection** | No names, emails, or usage data collected |
-| **Rate limiting** | Prevents abuse of LLM API endpoints |
-| **CORS restrictions** | Express API restricted to localhost origins only |
-| **Body size limits** | 1mb limit prevents memory exhaustion attacks |
 
 ### CI Security
 
