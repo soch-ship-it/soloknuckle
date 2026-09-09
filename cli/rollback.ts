@@ -259,7 +259,7 @@ function verifyWebhookSecret(req: express.Request, rawBody?: Buffer): boolean {
 }
 
 export function initWebhookListener() {
-  const PORT = process.env.WEBHOOK_PORT || 3002;
+  const PORT = Number(process.env.WEBHOOK_PORT || 3002);
   const app = express();
 
   // Preserve the raw body so HMAC verification works for JSON payloads.
