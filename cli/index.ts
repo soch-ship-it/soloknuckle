@@ -22,6 +22,7 @@ import { runCheck } from './check';
 import { generateSbom, writeSbom } from './sbom';
 import { runCompliance, printComplianceReport } from './compliance';
 import { getVersion } from './path-utils';
+import { printBanner } from './banner';
 
 const program = new Command();
 
@@ -47,6 +48,7 @@ You are integrated with Soloknuckle, a Production Hygiene OS. You have access to
 
 // Extracted init logic — used by both the default handler and the init command
 function runInit(target: string): void {
+  printBanner();
   console.log(chalk.green('🚀 Initializing Soloknuckle Production Hygiene Kit...'));
   console.log(chalk.blue(`Target directory: ${target}`));
 
@@ -145,6 +147,7 @@ ${agentInstructions}`;
 // Default action when no args are provided: show usage. Never mutates the
 // current directory or auto-runs checks without an explicit command.
 if (process.argv.length <= 2) {
+  printBanner();
   console.log(chalk.cyan.bold('\n🛡️  Soloknuckle — Production Hygiene CLI\n'));
   console.log(chalk.white('Usage: npx soloknuckle <command> [options]\n'));
   console.log(chalk.dim('Commands:'));
