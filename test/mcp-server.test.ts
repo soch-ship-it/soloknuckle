@@ -193,7 +193,8 @@ describe('MCP Server', () => {
       expect(parsed.enabled).toBe(true);
 
       const flags = JSON.parse(fs.readFileSync(flagsPath, 'utf-8'));
-      expect(flags['new-feature']).toBe(true);
+      expect(flags.flags['new-feature']).toBe(true);
+      expect(flags.version).toBe(1);
 
       if (original !== null) fs.writeFileSync(flagsPath, original);
       else if (!existed) fs.unlinkSync(flagsPath);

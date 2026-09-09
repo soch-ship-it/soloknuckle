@@ -29,7 +29,7 @@ describe('applyPersona', () => {
 
   it('should create .cursorrules for frontend-ux', () => {
     const result = applyPersona('my-app', 'frontend-ux');
-    const expected = path.join(tmpDir, 'my-app', '.cursorrules');
+    const expected = fs.realpathSync(path.join(tmpDir, 'my-app', '.cursorrules'));
     expect(result).toBe(expected);
     expect(fs.existsSync(result)).toBe(true);
     const content = fs.readFileSync(result, 'utf-8');
