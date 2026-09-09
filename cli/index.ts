@@ -21,13 +21,14 @@ import { calculateMetrics, generateSuggestions } from './scorer';
 import { runCheck } from './check';
 import { generateSbom, writeSbom } from './sbom';
 import { runCompliance, printComplianceReport } from './compliance';
+import { getVersion } from './path-utils';
 
 const program = new Command();
 
 program
   .name('soloknuckle')
   .description('Production Hygiene Kit & Agent Firewall for any project')
-  .version('1.0.0');
+  .version(getVersion());
 
 // Multi-pronged capabilities registry
 const CAPABILITIES = `

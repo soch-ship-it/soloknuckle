@@ -3,7 +3,7 @@
   "displayName": "Soloknuckle — Production Hygiene",
   "description": "Production hygiene for AI-assisted development. Catch secrets, destructive commands, flaky tests, and coverage illusions before they ship.",
   "version": "1.0.0",
-  "publisher": "z99wE",
+  "publisher": "soch-ship-it",
   "author": {
     "name": "Soloknuckle",
     "url": "https://soloknuckle.dev"
@@ -11,11 +11,11 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/z99wE/soloknuckle"
+    "url": "https://github.com/soch-ship-it/soloknuckle"
   },
   "homepage": "https://soloknuckle.dev",
   "bugs": {
-    "url": "https://github.com/z99wE/soloknuckle/issues"
+    "url": "https://github.com/soch-ship-it/soloknuckle/issues"
   },
   "engines": {
     "vscode": "^1.85.0"

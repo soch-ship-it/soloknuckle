@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Soloknuckle Installer for Linux/macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/z99wE/soloknuckle/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/install.sh | bash
 
-REPO="z99wE/soloknuckle"
+REPO="soch-ship-it/soloknuckle"
 INSTALL_DIR="${SOLOKNUCKLE_INSTALL_DIR:-$HOME/.local/bin}"
 BINARY_NAME="soloknuckle"
 

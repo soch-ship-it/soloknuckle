@@ -26,7 +26,7 @@ if [ ! -f "$HYGIENE_SRC/AGENTS.md" ]; then
   trap 'rm -rf "$KIT_TMP"' EXIT
   echo "Source kit not found locally — fetching production hygiene kit..."
   command -v git >/dev/null 2>&1 || { echo "❌ git is required to fetch the kit."; exit 1; }
-  git clone --depth 1 https://github.com/z99wE/soloknuckle.git "$KIT_TMP/kit" >/dev/null 2>&1
+  git clone --depth 1 https://github.com/soch-ship-it/soloknuckle.git "$KIT_TMP/kit" >/dev/null 2>&1
   HYGIENE_SRC="$KIT_TMP/kit"
 fi
 

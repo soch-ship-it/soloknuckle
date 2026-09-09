@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json",
+  "$id": "https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/flags-schema.json",
   "title": "Soloknuckle Feature Flags",
   "description": "Feature flag configuration. Flags default to OFF. A flag may be enabled for everyone (true), or scoped by allowlist / rollout percentage (object form).",
   "type": "object",

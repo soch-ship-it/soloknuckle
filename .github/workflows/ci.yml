@@ -108,7 +108,7 @@ jobs:
             Production hygiene CLI — pre-flight checks, secret scanning, agent firewall, MCP, and a rollback daemon.
 
             Install:
-            \`curl -fsSL https://raw.githubusercontent.com/z99wE/soloknuckle/main/install.sh | bash\`
+            \`curl -fsSL https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/install.sh | bash\`
 
             Or via npm: \`npm install -g soloknuckle\`
 
