@@ -59,8 +59,7 @@ function baseDirOf(pattern: string): string {
 function globToRegExp(glob: string): RegExp {
   const escaped = glob
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '\u0000')      // '**' spans any number of segments
-    .replace(/\*/g, '[^/\\\\]*')     // a single '*' never crosses a segment
-    .replace(/\u0000/g, '(?:.*/)?'); // a leading '**/' may be empty (root files match)
+    .replace(/\*\*\//g, '(?:.*/)?') // a '**/' spans zero or more path segments
+    .replace(/\*/g, '[^/\\\\]*'); //   a single '*' never crosses a segment
   return new RegExp(`^${escaped}$`);
 }

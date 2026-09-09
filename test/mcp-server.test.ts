@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
+
+vi.mock('child_process', () => ({
+  execSync: vi.fn(),
+}));
 
 vi.mock('../cli/llm-client', () => ({
   callLLM: vi.fn().mockResolvedValue('["Add tests for critical paths"]'),
@@ -147,6 +152,7 @@ describe('MCP Server', () => {
       });
       const content = (res.result as { content: Array<{ text: string }> }).content;
       const parsed = JSON.parse(content[0].text);
+      console.log('PROBE', JSON.stringify(parsed), 'calls', JSON.stringify(vi.mocked(execSync).mock.calls));
       expect(parsed.clean).toBe(false);
       expect(parsed.violations.length).toBeGreaterThan(0);
     });
@@ -249,6 +255,156 @@ describe('notifications/initialized', () => {
     it('returns no response for initialized notification (JSON-RPC notifications stay silent)', async () => {
       const res = await handleRequest({ jsonrpc: '2.0', id: 99, method: 'notifications/initialized' });
       expect(res).toBeUndefined();
+    });
+  });
+
+  describe('soloknuckle_suggest', () => {
+    it('returns generated suggestions from the LLM', async () => {
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 60, method: 'tools/call',
+        params: { name: 'soloknuckle_suggest', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      const parsed = JSON.parse(content[0].text);
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed[0]).toContain('Add');
+    });
+  });
+
+  describe('soloknuckle_branches', () => {
+    beforeEach(() => {
+      vi.mocked(execSync).mockReset();
+    });
+
+    it('returns the parsed list of branches', async () => {
+      vi.mocked(execSync).mockReturnValueOnce('').mockReturnValueOnce('  main\n* feature/abc\n  develop');
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 70, method: 'tools/call',
+        params: { name: 'soloknuckle_branches', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      const parsed = JSON.parse(content[0].text);
+      expect(parsed).toHaveLength(3);
+      expect(parsed.find((b: { name: string }) => b.name === 'feature/abc').current).toBe(true);
+      expect(parsed.find((b: { name: string }) => b.name === 'main').current).toBe(false);
+    });
+
+    it('returns empty list when not inside a git repository', async () => {
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('not a git repository');
+      });
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 71, method: 'tools/call',
+        params: { name: 'soloknuckle_branches', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      expect(JSON.parse(content[0].text)).toEqual([]);
+    });
+  });
+
+  describe('soloknuckle_secrets without a diff', () => {
+    beforeEach(() => {
+      vi.mocked(execSync).mockReset();
+    });
+
+    it('scans the staged diff when no diff is provided', async () => {
+      vi.mocked(execSync).mockReturnValueOnce('').mockReturnValueOnce('+ const key = "api_key = "abcdef1234567890"');
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 22, method: 'tools/call',
+        params: { name: 'soloknuckle_secrets', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      const parsed = JSON.parse(content[0].text);
+      expect(parsed.clean).toBe(false);
+      expect(parsed.violations.length).toBeGreaterThan(0);
+    });
+
+    it('reports clean when not inside a git repository', async () => {
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('not a git repository');
+      });
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 23, method: 'tools/call',
+        params: { name: 'soloknuckle_secrets', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      const parsed = JSON.parse(content[0].text);
+      expect(parsed.clean).toBe(true);
+    });
+  });
+
+  describe('soloknuckle_flag_set migration', () => {
+    it('migrates a legacy flat flags.json to the versioned shape', async () => {
+      const flagsPath = path.join(process.cwd(), 'flags.json');
+      const existed = fs.existsSync(flagsPath);
+      const original = existed ? fs.readFileSync(flagsPath, 'utf-8') : null;
+
+      fs.writeFileSync(flagsPath, JSON.stringify({ 'old-flag': true }, null, 2));
+
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 80, method: 'tools/call',
+        params: { name: 'soloknuckle_flag_set', arguments: { name: 'new-flag', enabled: true } },
+      });
+      const parsed = JSON.parse((res.result as { content: Array<{ text: string }> }).content[0].text);
+      expect(parsed.success).toBe(true);
+      const flags = JSON.parse(fs.readFileSync(flagsPath, 'utf-8'));
+      expect(flags.version).toBe(1);
+      expect(flags.flags['old-flag']).toBe(true);
+      expect(flags.flags['new-flag']).toBe(true);
+
+      if (original !== null) fs.writeFileSync(flagsPath, original);
+      else if (!existed) fs.unlinkSync(flagsPath);
+    });
+
+    it('updates an existing versioned flags file', async () => {
+      const flagsPath = path.join(process.cwd(), 'flags.json');
+      const existed = fs.existsSync(flagsPath);
+      const original = existed ? fs.readFileSync(flagsPath, 'utf-8') : null;
+
+      fs.writeFileSync(flagsPath, JSON.stringify({ version: 1, flags: { alpha: true } }, null, 2));
+
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 81, method: 'tools/call',
+        params: { name: 'soloknuckle_flag_set', arguments: { name: 'beta', enabled: false } },
+      });
+      const parsed = JSON.parse((res.result as { content: Array<{ text: string }> }).content[0].text);
+      expect(parsed).toMatchObject({ success: true, flag: 'beta', enabled: false });
+      const flags = JSON.parse(fs.readFileSync(flagsPath, 'utf-8'));
+      expect(flags.flags.alpha).toBe(true);
+      expect(flags.flags.beta).toBe(false);
+
+      if (original !== null) fs.writeFileSync(flagsPath, original);
+      else if (!existed) fs.unlinkSync(flagsPath);
+    });
+  });
+
+  describe('soloknuckle_supply_chain_sentinel', () => {
+    it('runs a quick scan and returns a report', async () => {
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 90, method: 'tools/call',
+        params: { name: 'soloknuckle_supply_chain_sentinel', arguments: { depth: 'quick' } },
+      });
+      const content = (res.result as { content: Array<{ text: string }> }).content;
+      const parsed = JSON.parse(content[0].text);
+      expect(parsed.depth).toBe('quick');
+      expect(Array.isArray(parsed.findings)).toBe(true);
+      expect(typeof parsed.riskScore).toBe('number');
+    });
+  });
+
+  describe('tool error handling', () => {
+    it('reports an error result when a tool throws', async () => {
+      const { calculateMetrics } = await import('../cli/scorer');
+      vi.mocked(calculateMetrics).mockImplementationOnce(() => {
+        throw new Error('boom');
+      });
+      const res = await handleRequest({
+        jsonrpc: '2.0', id: 100, method: 'tools/call',
+        params: { name: 'soloknuckle_score', arguments: {} },
+      });
+      const content = (res.result as { content: Array<{ text: string }>; isError: boolean }).content;
+      expect(res.result.isError).toBe(true);
+      expect(content[0].text.startsWith('Error: boom')).toBe(true);
     });
   });
 });

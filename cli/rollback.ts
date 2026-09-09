@@ -258,8 +258,7 @@ function verifyWebhookSecret(req: express.Request, rawBody?: Buffer): boolean {
   return false;
 }
 
-export function initWebhookListener() {
-  const PORT = Number(process.env.WEBHOOK_PORT || 3002);
+export function createRollbackServer(): express.Express {
   const app = express();
 
   // Preserve the raw body so HMAC verification works for JSON payloads.
@@ -268,8 +267,6 @@ export function initWebhookListener() {
       (_req as express.Request & { rawBody?: Buffer }).rawBody = buf;
     },
   }));
-
-  console.log(chalk.yellow(`Starting Rollback Daemon on ${WEBHOOK_HOST}:${PORT}...`));
 
   // ─── Existing: Feature Flag Rollback ───────────────────────────────────
   app.post('/webhooks/rollback', (req, res) => {
@@ -401,6 +398,14 @@ export function initWebhookListener() {
   app.get('/webhooks/incidents', (_req, res) => {
     res.json(loadIncidents());
   });
+
+  return app;
+}
+
+export function initWebhookListener() {
+  const PORT = Number(process.env.WEBHOOK_PORT || 3002);
+  const app = createRollbackServer();
+  console.log(chalk.yellow(`Starting Rollback Daemon on ${WEBHOOK_HOST}:${PORT}...`));
 
   app.listen(PORT, WEBHOOK_HOST, () => {
     console.log(chalk.green(`Listening for webhooks at http://${WEBHOOK_HOST}:${PORT}/webhooks/rollback`));
