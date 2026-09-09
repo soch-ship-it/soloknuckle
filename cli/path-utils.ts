@@ -2,12 +2,13 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Correct, minimal glob discovery for the patterns this codebase uses:
- *   'src/**/*.ts', '**/*.test.ts', 'test/**/*.ts', 'cli/*.spec.js', ...
+ * Correct, minimal glob discovery for the patterns this codebase uses,
+ * e.g. 'src' + any-deep '*.ts', any-deep '*.test.ts', 'cli' + '*.spec.js'.
  *
- * The previous hand-rolled variant (pattern.split('**/') + endsWith(ext))
- * silently matched nothing the moment a glob had '**/' in the middle or a
- * single '*' pattern, so several advertised features found zero files.
+ * The previous hand-rolled variant (splitting a glob at its asterisk and
+ * only keeping a trailing extension) silently matched nothing the moment a
+ * glob had a mid-pattern double-asterisk or a single-asterisk pattern, so
+ * several advertised features found zero files.
  */
 export function findFiles(patterns: string[]): string[] {
   const matches: string[] = [];
