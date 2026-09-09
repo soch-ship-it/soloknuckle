@@ -15,7 +15,7 @@
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-428%20passing-brightgreen" alt="428 tests passing">
+  <img src="https://img.shields.io/badge/tests-441%20passing-brightgreen" alt="441 tests passing">
   <img src="https://img.shields.io/badge/coverage-89%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
@@ -405,8 +405,7 @@ soloknuckle/
 │   ├── telemetry.ts          # AI vs human tracking
 │   ├── rollback.ts           # Auto-rollback daemon + webhooks
 │   ├── mcp-server.ts         # MCP server for AI agents
-│   └── ...                   # config, personas, pr-enforcer, budget, ai-watcher
-├── test/                     # 27 test suites, 428 tests
+│   └── ...                   # config, personas, pr-enforcer, budget, ai-watcher├── test/                      # 28 test suites, 441 tests
 ├── git-hooks/                # pre-commit, commit-msg hook scripts
 ├── templates/                # Feature flag templates
 ├── scripts/                  # Setup + asset generation scripts
@@ -421,11 +420,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 428 tests
+npm test                      # run all 441 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 428 tests across 27 suites — 89.2% lines, 90.5% functions, 77.0% branches covered.
+**Current status:** 441 tests across 28 suites — 89.3% lines, 90.7% functions, 77.3% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
 
