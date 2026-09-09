@@ -23,6 +23,8 @@ vi.mock('../cli/scorer', () => ({
   generateSuggestions: vi.fn().mockResolvedValue(['Add aria-label to buttons', 'Fix the 2 security issues']),
 }));
 
+import { getVersion } from '../cli/path-utils';
+
 const { handleRequest, TOOLS } = await import('../cli/mcp-server');
 
 describe('MCP Server', () => {
@@ -36,7 +38,7 @@ describe('MCP Server', () => {
       expect(res.result).toEqual({
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
-        serverInfo: { name: 'soloknuckle', version: '1.0.0' },
+        serverInfo: { name: 'soloknuckle', version: getVersion() },
       });
       expect(res.id).toBe(1);
     });

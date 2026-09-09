@@ -364,7 +364,7 @@ async function attemptFixes(issues: Issue[]): Promise<void> {
           flagsPath,
           JSON.stringify(
             {
-              $schema: 'https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json',
+              $schema: 'https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/flags-schema.json',
               flags: {},
               version: 1,
             },

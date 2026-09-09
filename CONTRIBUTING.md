@@ -6,7 +6,7 @@ Thanks for wanting to help! Here's how to get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/z99wE/soloknuckle.git
+git clone https://github.com/soch-ship-it/soloknuckle.git
 cd soloknuckle
 
 # Install dependencies

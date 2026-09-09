@@ -5,6 +5,7 @@ import { getTelemetry } from './telemetry';
 import { interceptCommand } from './interceptor';
 import { scanDiffForSecretsAndPII } from './scanner';
 import { SupplyChainSentinel } from './supply-chain-sentinel';
+import { getVersion } from './path-utils';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -105,7 +106,7 @@ async function handleRequest(req: MCPRequest): Promise<MCPResponse | undefined> 
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'soloknuckle', version: '1.0.0' },
+          serverInfo: { name: 'soloknuckle', version: getVersion() },
         },
       };
 
@@ -214,14 +215,14 @@ async function handleToolCall(id: number | string, name: string, args: Record<st
           // Legacy/unversioned file — migrate it.
           const flat = fileData as Record<string, boolean>;
           const migrated = {
-            $schema: 'https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json',
+            $schema: 'https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/flags-schema.json',
             flags: { ...flat, [flagName]: enabled },
             version: 1,
           };
           fileData = migrated;
         } else {
           fileData = {
-            $schema: 'https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json',
+            $schema: 'https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/flags-schema.json',
             flags: { [flagName]: enabled },
             version: 1,
           };
