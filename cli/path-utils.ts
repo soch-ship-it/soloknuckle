@@ -23,7 +23,7 @@ export function findFiles(patterns: string[]): string[] {
 
     let items: string[] = [];
     try {
-      items = fs.readdirSync(root, { recursive: true });
+      items = fs.readdirSync(root, { encoding: 'utf8', recursive: true });
     } catch {
       continue;
     }
