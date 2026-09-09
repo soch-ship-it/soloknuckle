@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Soloknuckle implements a full CLI hygiene suite (health scoring, secret scanning, git hooks, MCP server, SBOM, webhooks). Some advanced "library" modules (mutation, flaky, caller-contract, context-validator) are exported but not yet wired into the default `check` gate, and the React dashboard is developed separately from the published npm package.
+Soloknuckle implements a full CLI hygiene suite (health scoring, secret scanning, git hooks, MCP server, SBOM, webhooks). Some advanced "library" modules (mutation, flaky, caller-contract, context-validator) are exported but not yet wired into the default `check` gate,.
 
 **Severity Rating**: ✅ **READY FOR PUBLISH** — All P1 and P2 bugs resolved, all remaining P3 items addressed.
 

@@ -7,7 +7,6 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import express from 'express';
 
 dotenv.config();
 
@@ -27,7 +26,7 @@ const program = new Command();
 
 program
   .name('soloknuckle')
-  .description('Production Hygiene Kit & Neo-Brutalist Hub')
+  .description('Production Hygiene Kit & Agent Firewall for any project')
   .version('1.0.0');
 
 // Multi-pronged capabilities registry
@@ -39,7 +38,6 @@ You are integrated with Soloknuckle, a Production Hygiene OS. You have access to
 - \`npx soloknuckle audit\`: Analyzes local uncommitted code against AGENTS.md rules.
 - \`npx soloknuckle score\`: Calculates a 0-100 project health score and provides AI suggestions.
 - \`npx soloknuckle init\`: Scaffolds hooks and rules for any project.
-- \`npx soloknuckle ui\`: Launches the visual dashboard and deterministic agent sandbox.
 - \`npx soloknuckle pr\`: Auto-generates a PR description from a git diff.
 - \`npx soloknuckle persona <type> <folder>\`: Applies bounded-context agent rules to specific directories.
 - \`npx soloknuckle sbom\`: Generates a CycloneDX-like SBOM from your dependencies.
@@ -122,7 +120,7 @@ ${agentInstructions}`;
 
   const replitPath = path.join(target, '.replit');
   if (!fs.existsSync(replitPath)) {
-    fs.writeFileSync(replitPath, 'run = "npx soloknuckle ui"\n');
+    fs.writeFileSync(replitPath, 'run = "npx soloknuckle check"\n');
     console.log(chalk.green('✅ Created .replit config for Replit Agent'));
   }
 
@@ -155,7 +153,6 @@ if (process.argv.length <= 2) {
   console.log(chalk.dim('  audit       — LLM review of uncommitted code'));
   console.log(chalk.dim('  compliance  — audit against production hygiene standards'));
   console.log(chalk.dim('  sbom        — generate a CycloneDX-like SBOM'));
-  console.log(chalk.dim('  ui          — open the local dashboard'));
   console.log(chalk.dim('  watch       — start the rollback daemon + webhook listener'));
   console.log(chalk.dim('  persona     — generate directory-specific agent rules'));
   console.log(chalk.dim('  pr          — auto-generate a PR description'));
@@ -244,49 +241,6 @@ program
       console.log(chalk.red(`❌ Audit failed: ${msg}`));
       console.log(chalk.dim('Please ensure your API key/Base URL is valid and you have an internet connection.'));
     }
-  });
-
-program
-  .command('ui')
-  .description('Launches the local Neo-Brutalist Web UI')
-  .option('-p, --port <port>', 'Port to listen on', '3001')
-  .option('--host <host>', 'Host to bind to', '127.0.0.1')
-  .action((options) => {
-    console.log(chalk.magenta('🎨 Launching Founder Control Center UI...'));
-
-    const { createApp } = require('./app') as typeof import('./app');
-    const app = createApp();
-
-    // Serve a pre-built UI if one is present (repo checkout or local build),
-    // otherwise fall back to the Vite dev server.
-    const candidates = [
-      path.join(__dirname, '..', '..', 'ui', 'dist'),
-      path.join(process.cwd(), 'ui', 'dist'),
-      path.join(__dirname, '..', '..', 'dist-extra', 'ui'),
-    ];
-    const uiDistPath = candidates.find((p) => fs.existsSync(path.join(p, 'index.html')));
-    if (uiDistPath) {
-      app.use(express.static(uiDistPath));
-      console.log(chalk.blue(`Serving UI from compiled distribution: ${uiDistPath}`));
-    } else {
-      const uiDevPath = path.join(process.cwd(), 'ui');
-      if (fs.existsSync(path.join(uiDevPath, 'package.json'))) {
-        console.log(chalk.yellow('UI dist not found. Launching Vite dev server...'));
-        const { spawn } = require('child_process') as typeof import('child_process');
-        spawn('npm', ['run', 'dev'], { cwd: uiDevPath, stdio: 'inherit', shell: true });
-      } else {
-        console.log(chalk.yellow('Dashboard assets are not shipped with the npm package.'));
-        console.log(chalk.dim('The CLI commands (check/score/audit/sbom/compliance) work without the dashboard.'));
-        console.log(chalk.dim('To use the dashboard, clone the repository and build ui/ or run `npm run dev` inside ui/.'));
-        return;
-      }
-    }
-
-    const PORT = Number(options.port);
-    const HOST = options.host;
-    app.listen(PORT, HOST, () => {
-      console.log(chalk.green(`✅ Founder Control Center is live at http://${HOST === '127.0.0.1' ? 'localhost' : HOST}:${PORT}`));
-    });
   });
 
 program

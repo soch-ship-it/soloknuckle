@@ -13,7 +13,6 @@
 | `npx soloknuckle` | Wizard launches | Menu appears, all 7 choices selectable |
 | `npx soloknuckle check` | Full check suite | Runs lint, typecheck, tests, secret scan; exits 0 on pass, 1 on fail |
 | `npx soloknuckle score` | Health calculation | Shows 0-100 score, 5 pillars, AI suggestions |
-| `npx soloknuckle ui` | Dashboard launch | Server starts on 3001, UI loads, no console errors |
 | `npx soloknuckle init` | Full scaffold | Creates: AGENTS.md, .git/hooks/*, .cursorrules, .windsurfrules, SKILL.md, .replit, mcp-config.json |
 | `npx soloknuckle capabilities` | Registry output | Machine-readable output, all commands listed |
 | `npx soloknuckle audit` | LLM audit | Prompts for API key, sends diff, returns review |
@@ -77,7 +76,6 @@ For each feature, verify:
 | 6 | Agent Telemetry Engine | | | | | |
 | 7 | Strict PR Description Enforcer | | | | | |
 | 8 | Automated Rollback Triggers | | | | | |
-| 9 | Founder Control Center (UI) | | | | | |
 | 10 | Deterministic Agent Firewall | | | | | |
 | 11 | Zero Cognitive Load Wizard | | | | | |
 | 12 | Agent Capabilities Hook | | | | | |
@@ -300,53 +298,9 @@ Identify critical code paths without test coverage:
 
 ---
 
-## Phase 8: UI Dashboard Audit
+## Phase 8: UI Dashboard Audit (Removed)
 
-### 8.1 Functionality
-| Feature | Works | Notes |
-|---------|-------|-------|
-| Dashboard loads | | |
-| Feature flags display | | |
-| Feature flags toggle | | |
-| Agent sandbox executes | | |
-| Persona manager works | | |
-| Branch visualizer shows | | |
-| Rollback controls function | | |
-| Telemetry displays | | |
-| Config editor works | | |
-
-### 8.2 UI/UX Quality
-| Check | Status |
-|-------|--------|
-| No console errors | |
-| No network errors | |
-| Responsive on mobile | |
-| Responsive on tablet | |
-| All buttons clickable | |
-| All forms submit | |
-| Loading states shown | |
-| Error states shown | |
-| Empty states shown | |
-
-### 8.3 Accessibility
-| Check | Status |
-|-------|--------|
-| Keyboard navigation works | |
-| Screen reader compatible | |
-| Color contrast sufficient | |
-| Focus indicators visible | |
-| Alt text on images | |
-| ARIA labels present | |
-
-### 8.4 Performance
-| Metric | Target | Actual |
-|--------|--------|--------|
-| Initial load | < 3s | |
-| Time to interactive | < 5s | |
-| Bundle size | < 200KB | |
-| No memory leaks | | |
-
----
+> The React web dashboard was dropped (CLI-only). This phase is cancelled.
 
 ## Phase 9: Documentation Audit
 
