@@ -13,6 +13,17 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'vscode/**'],
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+      },
+    },
+  },
+  {
+    ignores: ['dist/**', 'dist-bin/**', 'node_modules/**', 'vscode/**'],
   },
 ];
