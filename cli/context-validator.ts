@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { findFiles as findFilesByGlob } from './path-utils';
 
 // ─── Context-Aware Test Validator ──────────────────────────────────────────
 // Detects tests in isolation, missing real DB/network mocks (Same-Model Blindness)
@@ -323,7 +324,7 @@ export async function validateTestContext(
 // ─── Helper to Find Test Files ─────────────────────────────────────────────
 
 function findTestFiles(): string[] {
-  const testPatterns = [
+  return findFilesByGlob([
     '**/*.test.ts',
     '**/*.test.js',
     '**/*.spec.ts',
@@ -334,31 +335,7 @@ function findTestFiles(): string[] {
     'test/**/*.js',
     'tests/**/*.ts',
     'tests/**/*.js',
-  ];
-
-  const files: string[] = [];
-
-  for (const pattern of testPatterns) {
-    try {
-      // Simple glob implementation
-      const [dir, ext] = pattern.split('**/');
-      const fullDir = path.join(process.cwd(), dir || '.');
-
-      if (fs.existsSync(fullDir)) {
-        const items = fs.readdirSync(fullDir, { recursive: true });
-        for (const item of items) {
-          const itemPath = path.join(fullDir, String(item));
-          if (fs.statSync(itemPath).isFile() && itemPath.endsWith(ext)) {
-            files.push(path.relative(process.cwd(), itemPath));
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore errors in file finding
-    }
-  }
-
-  return [...new Set(files)];
+  ]);
 }
 
 // ─── Gate Evaluation ───────────────────────────────────────────────────────

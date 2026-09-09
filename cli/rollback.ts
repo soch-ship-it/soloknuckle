@@ -4,7 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import express from 'express';
-import cors from 'cors';
 
 // ─── Incident History ───────────────────────────────────────────────────────
 
@@ -209,32 +208,68 @@ function createRollbackReport(incident: SentryIncident, aiCommit: { sha: string;
 
 // ─── Webhook Server ─────────────────────────────────────────────────────────
 
-function verifyWebhookSecret(req: express.Request): boolean {
-  const secret = process.env.WEBHOOK_SECRET;
-  if (!secret) {
-    if (!(global as Record<string, unknown>).__webhookSecretWarned) {
-      console.log(chalk.yellow('⚠️  WARNING: No WEBHOOK_SECRET configured. Webhook requests will be accepted without verification.'));
-      console.log(chalk.dim('   Set WEBHOOK_SECRET environment variable for production use.'));
-      (global as Record<string, unknown>).__webhookSecretWarned = true;
-    }
-    return true;
+const WEBHOOK_HOST = process.env.WEBHOOK_HOST || '127.0.0.1';
+
+// Ephemeral secret so the daemon never accepts unauthenticated requests even when
+// WEBHOOK_SECRET isn't set. Print it once at startup so legitimate senders can use it.
+let ephemeralSecret: string | null = null;
+
+function getWebhookSecret(): string {
+  if (process.env.WEBHOOK_SECRET) return process.env.WEBHOOK_SECRET;
+  if (!ephemeralSecret) {
+    ephemeralSecret = crypto.randomBytes(24).toString('hex');
+    console.log(chalk.yellow('⚠️  No WEBHOOK_SECRET set — generated a one-time secret for this session:'));
+    console.log(chalk.dim(`    ${ephemeralSecret}`));
+    console.log(chalk.dim('   Send it in the X-Webhook-Secret header. Restarting the daemon rotates it.'));
+    console.log(chalk.dim('   For persistent access, set the WEBHOOK_SECRET environment variable.'));
   }
-  const signature = req.headers['x-webhook-secret'] || req.headers['x-hub-signature-256'];
-  if (!signature) return false;
-  const sigBuf = Buffer.from(String(signature));
-  const secretBuf = Buffer.from(secret);
-  if (sigBuf.length !== secretBuf.length) return false;
-  return crypto.timingSafeEqual(sigBuf, secretBuf);
+  return ephemeralSecret;
+}
+
+function verifyWebhookSecret(req: express.Request, rawBody?: Buffer): boolean {
+  const secret = getWebhookSecret();
+
+  // 1. Exact shared secret in a plain header (X-Webhook-Secret)
+  const headerValue = req.headers['x-webhook-secret'];
+  if (typeof headerValue === 'string') {
+    const a = Buffer.from(headerValue);
+    const b = Buffer.from(secret);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+
+  // 2. Sentry HMAC: X-Sentry-Webhook-Hmac-SHA256 = hex(sha256(secret + rawBody))
+  const sentryHmac = req.headers['x-sentry-webhook-hmac-sha256'];
+  if (typeof sentryHmac === 'string' && rawBody) {
+    const expected = crypto.createHash('sha256').update(secret).update(rawBody).digest('hex');
+    const a = Buffer.from(sentryHmac);
+    const b = Buffer.from(expected);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+
+  // 3. GitHub-style HMAC hex: X-Hub-Signature-256 = "sha256=<hex>"
+  const hubSig = req.headers['x-hub-signature-256'];
+  if (typeof hubSig === 'string' && hubSig.startsWith('sha256=') && rawBody) {
+    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    const a = Buffer.from(hubSig);
+    const b = Buffer.from(expected);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+  }
+
+  return false;
 }
 
 export function initWebhookListener() {
   const PORT = process.env.WEBHOOK_PORT || 3002;
   const app = express();
 
-  app.use(cors());
-  app.use(express.json());
+  // Preserve the raw body so HMAC verification works for JSON payloads.
+  app.use(express.json({
+    verify: (_req: express.Request, _res: express.Response, buf: Buffer) => {
+      (_req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }));
 
-  console.log(chalk.yellow(`Starting Rollback Daemon on port ${PORT}...`));
+  console.log(chalk.yellow(`Starting Rollback Daemon on ${WEBHOOK_HOST}:${PORT}...`));
 
   // ─── Existing: Feature Flag Rollback ───────────────────────────────────
   app.post('/webhooks/rollback', (req, res) => {
@@ -287,7 +322,8 @@ export function initWebhookListener() {
 
   // ─── New: Sentry Incident Auto-Rollback ────────────────────────────────
   app.post('/webhooks/sentry', (req, res) => {
-    if (!verifyWebhookSecret(req)) {
+    const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
+    if (!verifyWebhookSecret(req, rawBody)) {
       console.log(chalk.red('[SECURITY] Sentry webhook rejected: invalid or missing secret'));
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -366,9 +402,9 @@ export function initWebhookListener() {
     res.json(loadIncidents());
   });
 
-  app.listen(PORT, () => {
-    console.log(chalk.green(`Listening for webhooks at http://localhost:${PORT}/webhooks/rollback`));
-    console.log(chalk.green(`Sentry incident endpoint at http://localhost:${PORT}/webhooks/sentry`));
-    console.log(chalk.green(`Incident history at http://localhost:${PORT}/webhooks/incidents`));
+  app.listen(PORT, WEBHOOK_HOST, () => {
+    console.log(chalk.green(`Listening for webhooks at http://${WEBHOOK_HOST}:${PORT}/webhooks/rollback`));
+    console.log(chalk.green(`Sentry incident endpoint at http://${WEBHOOK_HOST}:${PORT}/webhooks/sentry`));
+    console.log(chalk.green(`Incident history at http://${WEBHOOK_HOST}:${PORT}/webhooks/incidents`));
   });
 }

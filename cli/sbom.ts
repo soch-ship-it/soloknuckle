@@ -38,6 +38,13 @@ function getVersion(): string {
   }
 }
 
+// Per the purl spec, a leading '@' in a scoped npm name must be percent-encoded.
+function toPurl(name: string, version: string): string {
+  const normalized = String(version).replace(/[\^~>=<]/g, '');
+  const encodedName = name.startsWith('@') ? `%40${name.slice(1)}` : name;
+  return `pkg:npm/${encodedName}@${normalized}`;
+}
+
 export function generateSbom(): SbomDocument {
   const components: SbomComponent[] = [];
   const seen = new Set<string>();
@@ -57,7 +64,7 @@ export function generateSbom(): SbomDocument {
           type: 'library',
           name,
           version: String(version).replace(/[\^~>=<]/g, ''),
-          purl: `pkg:npm/${name}@${String(version).replace(/[\^~>=<]/g, '')}`,
+          purl: toPurl(name, String(version)),
         });
       }
     }
@@ -84,7 +91,7 @@ export function generateSbom(): SbomDocument {
             type: 'library',
             name,
             version: dep.version,
-            purl: `pkg:npm/${name}@${dep.version}`,
+            purl: toPurl(name, dep.version),
           });
         }
       }
@@ -104,7 +111,7 @@ export function generateSbom(): SbomDocument {
           type: 'application',
           name: pkg.name || path.basename(process.cwd()),
           version: pkg.version || '0.0.0',
-          purl: `pkg:npm/${pkg.name || path.basename(process.cwd())}@${pkg.version || '0.0.0'}`,
+          purl: toPurl(pkg.name || path.basename(process.cwd()), pkg.version || '0.0.0'),
           licenses: [{ id: String(pkg.license) }],
         });
       }
@@ -129,8 +136,23 @@ export function generateSbom(): SbomDocument {
 
 export function writeSbom(outputPath?: string): string {
   const sbom = generateSbom();
-  const outDir = outputPath || path.join(process.cwd(), '.soloknuckle');
-  const outFile = path.join(outDir, 'sbom.json');
+
+  // If the caller passed a path ending in .json, treat it as the full output
+  // file; otherwise treat it as a directory containing sbom.json.
+  let outFile: string;
+  let outDir: string;
+  if (outputPath) {
+    if (outputPath.endsWith('.json')) {
+      outFile = path.resolve(outputPath);
+      outDir = path.dirname(outFile);
+    } else {
+      outDir = path.resolve(outputPath);
+      outFile = path.join(outDir, 'sbom.json');
+    }
+  } else {
+    outDir = path.join(process.cwd(), '.soloknuckle');
+    outFile = path.join(outDir, 'sbom.json');
+  }
 
   if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });

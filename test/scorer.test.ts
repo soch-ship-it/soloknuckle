@@ -129,7 +129,7 @@ describe('getTestingScore', () => {
 
   it('floors at 0', () => {
     writePkg({ test: 'vitest run' });
-    mockExecForTests('fail fail fail fail fail', true);
+    mockExecForTests('Tests: 12 failed | 5 passed', true);
 
     const result = getTestingScore();
     expect(result.score).toBe(0);
@@ -416,17 +416,17 @@ describe('getSupplyChainScore', () => {
     vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
   });
 
-  it('starts at 50 and adds 20 for lock file', () => {
+  it('starts at 0 and adds 20 for lock file', () => {
     fs.writeFileSync(path.join(tmpDir, 'package-lock.json'), '{}');
     const result = getSupplyChainScore();
-    expect(result.score).toBe(70);
+    expect(result.score).toBe(20);
     expect(result.rawOutput).toContain('Lock file present');
   });
 
   it('adds 10 for .npmrc', () => {
     fs.writeFileSync(path.join(tmpDir, '.npmrc'), 'registry=https://registry.npmjs.org/');
     const result = getSupplyChainScore();
-    expect(result.score).toBe(60);
+    expect(result.score).toBe(10);
     expect(result.rawOutput).toContain('.npmrc detected');
   });
 
@@ -434,7 +434,7 @@ describe('getSupplyChainScore', () => {
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.github', 'dependabot.yml'), 'version: 2');
     const result = getSupplyChainScore();
-    expect(result.score).toBe(65);
+    expect(result.score).toBe(15);
     expect(result.rawOutput).toContain('Dependency update bot');
   });
 
@@ -443,7 +443,7 @@ describe('getSupplyChainScore', () => {
       dependencies: { 'express': '4.18.0', 'lodash': '4.17.21' },
     }, null, 2));
     const result = getSupplyChainScore();
-    expect(result.score).toBe(60); // 50 base + 10 for 100% pinned
+    expect(result.score).toBe(10); // 0 base + 10 for 100% pinned
     expect(result.rawOutput).toContain('pinned');
   });
 
@@ -452,7 +452,7 @@ describe('getSupplyChainScore', () => {
     expect(result.score).toBeGreaterThanOrEqual(0);
   });
 
-  it('caps at 100 with all supply chain features', () => {
+  it('adds up all supply chain features', () => {
     fs.writeFileSync(path.join(tmpDir, 'package-lock.json'), '{}');
     fs.writeFileSync(path.join(tmpDir, '.npmrc'), 'registry=https://registry.npmjs.org/');
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
@@ -461,8 +461,8 @@ describe('getSupplyChainScore', () => {
       dependencies: { 'express': '4.18.0', 'lodash': '4.17.21', 'cors': '2.8.5' },
     }, null, 2));
     const result = getSupplyChainScore();
-    // 50 + 20 lock + 10 npmrc + 15 dependabot + 10 pinned = 105 → capped at 100
-    expect(result.score).toBe(100);
+    // 0 + 20 lock + 10 npmrc + 15 dependabot + 10 pinned = 55
+    expect(result.score).toBe(55);
   });
 });
 

@@ -38,6 +38,26 @@ function createRateLimiter(maxRequests: number, windowMs: number) {
   };
 }
 
+// Reject anything that doesn't look like a local dev client. This blocks
+// DNS-rebinding and cross-origin CSRF even for headerless form POSTs, which
+// the CORS middleware does not cover.
+function isLocalHostname(host: string): boolean {
+  const withoutPort = host.toLowerCase().replace(/:\d+$/, '');
+  return withoutPort === 'localhost' || withoutPort === '127.0.0.1' || withoutPort === '[::1]';
+}
+
+function requireLocalClient(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const host = req.headers.host;
+  if (!host || !isLocalHostname(host)) {
+    return res.status(403).json({ error: 'Rejected: dashboard only accepts requests to localhost' });
+  }
+  const origin = req.headers.origin;
+  if (origin && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)) {
+    return res.status(403).json({ error: 'Rejected: cross-origin request' });
+  }
+  next();
+}
+
 export function createApp() {
   const app = express();
   app.use(cors({ origin: /^https?:\/\/localhost(:\d+)?$/ }));
@@ -45,6 +65,7 @@ export function createApp() {
 
   const apiLimiter = createRateLimiter(30, 60_000);
   app.use('/api/', apiLimiter);
+  app.use('/api/', requireLocalClient);
 
   const ALLOWED_COMMANDS = ['npm test', 'npm run lint', 'git status', 'git diff', 'npx soloknuckle check'];
   const interceptions: Array<{ time: string; command: string; reason?: string }> = [];

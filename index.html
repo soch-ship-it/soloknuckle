@@ -814,19 +814,19 @@
         </div>
         <div class="problem-card">
           <h3><span class="problem-icon">🛡️</span> Most tools warn. Soloknuckle blocks.</h3>
-          <p>Linters suggest. Soloknuckle enforces. Hard gates on security, testing, reliability, and supply chain mean bad code physically cannot merge. Exit code 1. CI fails. No override.</p>
+          <p>Linters suggest. Soloknuckle enforces. Hard gates on security, testing, reliability, and supply chain fail CI with exit code 1 in strict mode — so bad code can't silently merge.</p>
         </div>
         <div class="problem-card">
           <h3><span class="problem-icon">🔗</span> Most tools trust dependencies. Soloknuckle doesn't.</h3>
-          <p>Supply chain attacks grew 742% in 2024. Soloknuckle blocks known malicious IPs, detects typosquatting, audits package provenance, and enforces minimum package age — before a single byte installs.</p>
+          <p>Soloknuckle scans your dependency tree for typosquatted and known-hostile packages, and verifies your lockfile is intact so installs stay reproducible.</p>
         </div>
         <div class="problem-card">
-          <h3><span class="problem-icon">🔍</span> Most tools match patterns. Soloknuckle reads context.</h3>
-          <p>Regex-based linters can't tell a real vulnerability from a test fixture. Soloknuckle's context-aware scanner understands file purpose, reduces false positives, and knows what's actually dangerous.</p>
+          <h3><span class="problem-icon">🔍</span> Most tools match patterns. Soloknuckle checks behavior.</h3>
+          <p>Regex flags are the floor, not the ceiling. Soloknuckle pairs secret scanning with checks for real behavior — mutation testing, contract checks, and build-time busting — so "tests pass" actually means the code still behaves.</p>
         </div>
         <div class="problem-card">
           <h3><span class="problem-icon">💰</span> Most tools count tests. Soloknuckle counts failures.</h3>
-          <p>Every flaky test costs ~$100/month in wasted CI time and developer attention. Soloknuckle detects flaky patterns, estimates the real cost, and tells you which tests to kill first.</p>
+          <p>Soloknuckle runs pattern analysis across your test suite to flag likely-flaky tests, and its hygiene gates are prescriptive about failure — not just counting what ran.</p>
         </div>
       </div>
     </div>
@@ -856,7 +856,7 @@
         <div class="feature-card">
           <span class="feature-icon">🤖</span>
           <h3>Know who wrote what</h3>
-          <p>Automatically detects AI-generated commits so you can review them separately. Track the human-vs-AI ratio over time.</p>
+          <p>Flags likely AI-generated commits using heuristics so you can review them separately. Track the human-vs-AI ratio over time.</p>
           <span class="feature-tag">Intelligence</span>
         </div>
         <div class="feature-card">
@@ -1051,7 +1051,7 @@
       <div class="security-grid">
         <div class="security-item">
           <h4>🏠 Local First</h4>
-          <p>All data stays in <code>~/.soloknuckle/</code>. No telemetry. Code is only sent to external services when you explicitly run LLM commands (audit, pr).</p>
+          <p>Nothing leaves your machine unless you run an LLM command (audit, pr) with a configured provider. Config lives in <code>~/.soloknuckle/</code>; per-project data in <code>.soloknuckle/</code>.</p>
         </div>
         <div class="security-item">
           <h4>🔐 No PII Collection</h4>

@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Soloknuckle is **98% production-ready** for its intended use case as a CLI tool + local web dashboard. The core functionality works correctly, tests pass (139/139), and the architecture is sound.
+Soloknuckle implements a full CLI hygiene suite (health scoring, secret scanning, git hooks, MCP server, SBOM, webhooks). Some advanced "library" modules (mutation, flaky, caller-contract, context-validator) are exported but not yet wired into the default `check` gate, and the React dashboard is developed separately from the published npm package.
 
 **Severity Rating**: ✅ **READY FOR PUBLISH** — All P1 and P2 bugs resolved, all remaining P3 items addressed.
 
@@ -42,13 +42,13 @@ Soloknuckle is **98% production-ready** for its intended use case as a CLI tool 
 
 | Test Suite | Status | Notes |
 |------------|--------|-------|
-| Unit tests | ✅ 139/139 passing | All CLI modules covered |
-| Lint | ✅ Clean | No ESLint errors |
-| TypeCheck | ✅ Clean | TypeScript strict mode |
-| Build | ✅ Clean | 50 files, no source maps |
-| npm pack | ✅ Clean | 27.7kB package, no leaks |
-| Manual CLI | ✅ All commands work | All P1/P2 bugs resolved |
+| Unit tests | See `npm test` | Run `npx vitest run` locally to confirm count |
+| Lint | See `npm run lint` | ESLint must pass clean |
+| TypeCheck | See `npm run typecheck` | TypeScript strict mode |
+| Build | See `npm run build` | `tsc` compile must be clean |
+| npm pack | Verify with `npm pack --dry-run` | Confirm package contents before publish |
+| Manual CLI | Smoke-test each command | All P1/P2 bugs resolved |
 
 ---
 
-*Report updated 2026-08-18 — All bugs fixed or resolved (139/139 tests passing)*
+*Report updated 2026-08-18 — all known P1/P2 bugs fixed. Verify locally with `npm test` before release.*

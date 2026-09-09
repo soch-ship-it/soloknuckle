@@ -17,17 +17,27 @@ export function applyPersona(folderPath: string, personaType: PersonaType): stri
   }
 
   const cwd = process.cwd();
-  const fullPath = path.resolve(cwd, folderPath);
+  const resolvedCandidate = path.resolve(cwd, folderPath);
 
-  if (!fullPath.startsWith(cwd)) {
+  // Lexical containment check first (no filesystem side effects yet).
+  const rel = path.relative(cwd, resolvedCandidate);
+  if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
     throw new Error(`Path traversal blocked: '${folderPath}' resolves outside the project directory`);
   }
 
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
+  if (!fs.existsSync(resolvedCandidate)) {
+    fs.mkdirSync(resolvedCandidate, { recursive: true });
   }
 
-  const cursorRulesPath = path.join(fullPath, '.cursorrules');
+  // Re-check with real paths so a symlinked parent cannot smuggle writes outside cwd.
+  const cwdReal = fs.realpathSync(cwd);
+  const realPath = fs.realpathSync(resolvedCandidate);
+  const realRel = path.relative(cwdReal, realPath);
+  if (realRel === '..' || realRel.startsWith(`..${path.sep}`) || path.isAbsolute(realRel)) {
+    throw new Error(`Path traversal blocked: '${folderPath}' escapes the project directory via a symlink`);
+  }
+
+  const cursorRulesPath = path.join(realPath, '.cursorrules');
   const personaRules = PERSONA_RULES[personaType];
 
   fs.writeFileSync(cursorRulesPath, personaRules);

@@ -146,7 +146,10 @@ export function getReliabilityScore(): DimensionScore {
 
 export function getSupplyChainScore(): DimensionScore {
   try {
-    let score = 50;
+    // Start from 0 and build up from verifiable, positive evidence. Starting at
+    // 50 let a project with NO supply-chain hygiene (no lockfile, no update bot,
+    // no pinning) still clear the gate.
+    let score = 0;
     let report = '';
 
     // Lock file integrity

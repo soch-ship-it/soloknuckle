@@ -96,7 +96,7 @@ const TOOLS = [
   },
 ];
 
-function handleRequest(req: MCPRequest): MCPResponse {
+async function handleRequest(req: MCPRequest): Promise<MCPResponse | undefined> {
   switch (req.method) {
     case 'initialize':
       return {
@@ -110,7 +110,9 @@ function handleRequest(req: MCPRequest): MCPResponse {
       };
 
     case 'notifications/initialized':
-      return { jsonrpc: '2.0', id: req.id, result: {} };
+      // JSON-RPC notifications must never be answered. Returning undefined
+      // tells the transport layer to stay silent.
+      return undefined;
 
     case 'tools/list':
       return { jsonrpc: '2.0', id: req.id, result: { tools: TOOLS } };
@@ -128,7 +130,7 @@ function handleRequest(req: MCPRequest): MCPResponse {
   }
 }
 
-function handleToolCall(id: number | string, name: string, args: Record<string, unknown>): MCPResponse {
+async function handleToolCall(id: number | string, name: string, args: Record<string, unknown>): Promise<MCPResponse> {
   try {
     let result: unknown;
 
@@ -201,19 +203,37 @@ function handleToolCall(id: number | string, name: string, args: Record<string, 
           return { jsonrpc: '2.0', id, error: { code: -32602, message: 'Missing flag name' } };
         }
         const flagsPath = path.join(process.cwd(), 'flags.json');
-        let flags: Record<string, boolean> = {};
+        let fileData: Record<string, unknown> = {};
         if (fs.existsSync(flagsPath)) {
-          flags = JSON.parse(fs.readFileSync(flagsPath, 'utf-8'));
+          fileData = JSON.parse(fs.readFileSync(flagsPath, 'utf-8'));
         }
-        flags[flagName] = enabled;
-        fs.writeFileSync(flagsPath, JSON.stringify(flags, null, 2));
+        // Keep the same versioned shape that `check` writes: { $schema, flags, version }.
+        if (fileData.flags && typeof fileData.flags === 'object' && fileData.version !== undefined) {
+          (fileData.flags as Record<string, unknown>)[flagName] = enabled;
+        } else if (fs.existsSync(flagsPath)) {
+          // Legacy/unversioned file — migrate it.
+          const flat = fileData as Record<string, boolean>;
+          const migrated = {
+            $schema: 'https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json',
+            flags: { ...flat, [flagName]: enabled },
+            version: 1,
+          };
+          fileData = migrated;
+        } else {
+          fileData = {
+            $schema: 'https://raw.githubusercontent.com/z99wE/soloknuckle/main/flags-schema.json',
+            flags: { [flagName]: enabled },
+            version: 1,
+          };
+        }
+        fs.writeFileSync(flagsPath, JSON.stringify(fileData, null, 2));
         result = { success: true, flag: flagName, enabled };
         break;
       }
 
       case 'soloknuckle_suggest': {
         const metrics = calculateMetrics();
-        result = generateSuggestions(metrics);
+        result = await generateSuggestions(metrics);
         break;
       }
 
@@ -267,6 +287,7 @@ function handleToolCall(id: number | string, name: string, args: Record<string, 
 
 function main() {
   let buffer = '';
+  let pending: Promise<void> = Promise.resolve();
 
   process.stdin.setEncoding('utf-8');
   process.stdin.on('data', (chunk: string) => {
@@ -279,8 +300,11 @@ function main() {
       if (!trimmed) continue;
       try {
         const req = JSON.parse(trimmed) as MCPRequest;
-        const res = handleRequest(req);
-        process.stdout.write(JSON.stringify(res) + '\n');
+        // Process serially to preserve request/response ordering.
+        pending = pending.then(async () => {
+          const res = await handleRequest(req);
+          if (res) process.stdout.write(JSON.stringify(res) + '\n');
+        }).catch(() => { /* keep transport alive on unexpected errors */ });
       } catch {
         // Ignore non-JSON lines (MCP uses JSON-RPC, invalid JSON is skipped)
       }
@@ -288,7 +312,7 @@ function main() {
   });
 
   process.stdin.on('end', () => {
-    process.exit(0);
+    pending.finally(() => process.exit(0));
   });
 }
 

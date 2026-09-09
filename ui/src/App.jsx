@@ -16,21 +16,21 @@ const PROVIDER_TYPES = [
 ];
 
 const PROVIDER_DEFAULTS = {
-  'OpenAI':              { model: 'gpt-4o',                  baseUrl: '' },
-  'Anthropic':           { model: 'claude-3-5-sonnet-20240620', baseUrl: '' },
-  'Gemini':              { model: 'gemini-1.5-pro',          baseUrl: '' },
-  'DeepSeek':            { model: 'deepseek-chat',           baseUrl: '' },
-  'Mistral':             { model: 'mistral-large-latest',    baseUrl: '' },
-  'Groq':                { model: 'llama-3.3-70b-versatile', baseUrl: '' },
-  'xAI (Grok)':          { model: 'grok-2-1212',             baseUrl: '' },
-  'OpenRouter':          { model: 'auto',                    baseUrl: '' },
-  'Cohere':              { model: 'command-r-plus',          baseUrl: '' },
+  'OpenAI':              { model: 'gpt-4o',                  baseUrl: 'https://api.openai.com/v1/chat/completions' },
+  'Anthropic':           { model: 'claude-3-5-sonnet-20240620', baseUrl: 'https://api.anthropic.com/v1/messages' },
+  'Gemini':              { model: 'gemini-1.5-pro',          baseUrl: 'https://generativelanguage.googleapis.com' },
+  'DeepSeek':            { model: 'deepseek-chat',           baseUrl: 'https://api.deepseek.com/v1/chat/completions' },
+  'Mistral':             { model: 'mistral-large-latest',    baseUrl: 'https://api.mistral.ai/v1/chat/completions' },
+  'Groq':                { model: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1/chat/completions' },
+  'xAI (Grok)':          { model: 'grok-2-1212',             baseUrl: 'https://api.x.ai/v1/chat/completions' },
+  'OpenRouter':          { model: 'auto',                    baseUrl: 'https://openrouter.ai/api/v1/chat/completions' },
+  'Cohere':              { model: 'command-r-plus',          baseUrl: 'https://api.cohere.com/v1/chat' },
   'OpenAI Compatible':   { model: 'default',                 baseUrl: 'http://localhost:1234/v1/chat/completions' },
   'Ollama (Local)':      { model: 'llama3',                  baseUrl: 'http://localhost:11434/api/chat' },
 };
 
 function App() {
-  const [sandboxCode, setSandboxCode] = useState('npm run build && npm run test');
+  const [sandboxCode, setSandboxCode] = useState('git status');
   const [sandboxResult, setSandboxResult] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [hooksEnabled, setHooksEnabled] = useState(true);
@@ -49,9 +49,9 @@ function App() {
   const os = detectOS();
 
   const installCommands = {
-    macOS: 'brew install soloknuckle',
-    Windows: 'winget install soloknuckle',
-    Linux: 'curl -fsSL https://raw.githubusercontent.com/z99wE/soloknuckle/main/install.sh | bash',
+    macOS: 'npm install -g soloknuckle',
+    Windows: 'npm install -g soloknuckle',
+    Linux: 'npm install -g soloknuckle',
     Unknown: 'npm install -g soloknuckle',
   };
 
@@ -309,7 +309,7 @@ function App() {
               }}>
                 <code style={{ flex: 1, overflowX: 'auto' }}>npm install -g soloknuckle</code>
                 <button aria-label="Copy npm install command"
-                  onClick={() => copyToClipboard(`npm install -g ${packageJson.name}`, 'primary')}
+                  onClick={() => copyToClipboard('npm install -g soloknuckle', 'npm')}
                   style={{
                     background: copiedCommand === 'npm' ? '#22c55e' : '#000',
                     color: '#fff',
@@ -339,7 +339,7 @@ function App() {
                 <li><strong>Open Terminal</strong> (or Command Prompt on Windows)</li>
                 <li><strong>Navigate</strong> to your project folder: <code style={{ background: '#fff', padding: '0.2rem 0.5rem' }}>cd your-project</code></li>
                 <li><strong>Run init:</strong> <code style={{ background: '#fff', padding: '0.2rem 0.5rem' }}>soloknuckle init</code></li>
-                <li><strong>Open Dashboard:</strong> <code style={{ background: '#fff', padding: '0.2rem 0.5rem' }}>soloknuckle dashboard</code></li>
+                <li><strong>Open Dashboard:</strong> <code style={{ background: '#fff', padding: '0.2rem 0.5rem' }}>soloknuckle ui</code></li>
               </ol>
             </div>
 
@@ -466,7 +466,7 @@ function App() {
                 <div className="visualizer-node" style={{ borderColor: branch.active ? '#000' : 'var(--secondary)' }} aria-label={`Branch: ${branch.name}${branch.active ? ' (active)' : ''}`}>
                   {branch.active && <span className="badge" style={{ position: 'absolute', top: '-10px', right: '-10px' }}>Active</span>}
                   <strong>{branch.name}</strong>
-                  <div style={{ fontSize: '0.8rem' }}>soloknuckle-{branch.name.replace('/', '-')}.vercel.app</div>
+                  <div style={{ fontSize: '0.8rem' }}>{branch.active ? 'local HEAD' : 'preview URL set when deployed'}</div>
                 </div>
                 {idx < branches.length - 1 && <div className="visualizer-line"></div>}
               </div>
@@ -482,7 +482,7 @@ function App() {
           <p>Run commands in a restricted sandbox. Only whitelisted commands are allowed.</p>
           <div style={{ flex: 1, marginTop: '1rem', display: 'flex', flexDirection: 'column' }}>
             <label htmlFor="sandbox-code" className="sr-only">Sandbox Code</label>
-            <textarea id="sandbox-code" className="text-area" placeholder="e.g. npm run build && npm run test" value={sandboxCode} onChange={(e) => setSandboxCode(e.target.value)} aria-label="Command to run in sandbox"></textarea>
+            <textarea id="sandbox-code" className="text-area" placeholder="e.g. git status" value={sandboxCode} onChange={(e) => setSandboxCode(e.target.value)} aria-label="Command to run in sandbox"></textarea>
             {sandboxResult && (
               <pre style={{ background: '#fff', color: '#000', padding: '1rem', overflowX: 'auto', border: 'var(--border-width) solid var(--border-color)', fontSize: '0.8rem', marginTop: '1rem', boxShadow: '4px 4px 0 #000', maxHeight: '200px', overflowY: 'auto' }}>
                 {sandboxResult}
@@ -553,12 +553,8 @@ function App() {
           <h2>Hygiene Audit Suggestions</h2>
           <p>Automated static analysis based on AGENTS.md rules.</p>
           <div style={{ background: 'var(--primary)', color: '#fff', border: 'var(--border-width) solid var(--border-color)', padding: '1.5rem', marginTop: '1rem', flex: 1, boxShadow: '4px 4px 0 #000' }}>
-            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '0.5rem' }}>[Violation Detected]</strong>
-            <p style={{ fontSize: '0.95rem', margin: '0 0 1rem 0', fontWeight: 'bold' }}>Direct modification of main branch detected in local git state.</p>
-            <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Suggested Fix:</strong>
-            <code style={{ display: 'block', background: '#000', color: 'var(--secondary)', padding: '0.75rem', border: 'var(--border-width) solid var(--border-color)', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              git checkout -b feature/your-feature-name
-            </code>
+            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Pending — run a hygiene check</strong>
+            <p style={{ fontSize: '0.95rem', margin: '0 0 1rem 0', fontWeight: 'bold' }}>No live violation feed is connected yet. Run <code>soloknuckle check</code> or <code>soloknuckle compliance</code> in your terminal for the authoritative report.</p>
           </div>
           <button className="btn" style={{ width: '100%', marginTop: '1.5rem', backgroundColor: '#fff', color: '#000' }} onClick={() => alert('Violation acknowledged. Apply the suggested fix before committing.')} aria-label="Acknowledge detected violation">Acknowledge</button>
         </div>
@@ -607,7 +603,7 @@ function App() {
           {[
             { step: '01', title: 'Install & Initialize', desc: 'Run `npx soloknuckle init` in your project. This installs git hooks and creates your config at ~/.soloknuckle/config.json — everything runs locally, no cloud service required.', icon: '⚙' },
             { step: '02', title: 'Connect Your LLM', desc: 'Add one or more AI providers — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Mistral, or run fully offline with Ollama. Test each connection with one click. Switch providers instantly.', icon: '🔗' },
-            { step: '03', title: 'Pre-commit Firewall', desc: 'Every `git commit` is scanned by your active LLM against AGENTS.md rules. Secrets, PII, destructive commands, missing tests, and style violations are blocked automatically before they reach your repo.', icon: '🛡' },
+            { step: '03', title: 'Pre-commit Firewall', desc: 'Every `git commit` runs the Soloknuckle pre-flight gates via the installed hooks — secret scanning, lint, typecheck, and tests. Violations are refused before they reach your repo.', icon: '🛡' },
             { step: '04', title: 'Audit & Improve', desc: 'Run `soloknuckle audit` or use this dashboard to score your codebase on Quality, Testing, Security, Efficiency, and Accessibility — then get AI-powered fix suggestions ranked by impact.', icon: '📊' },
             { step: '05', title: 'Monitor & Enforce', desc: 'The Agent Firewall logs every intercepted attempt in real-time. The Persona Manager generates role-specific rules for your team. Telemetry tracks AI vs Human contributions across your codebase.', icon: '👁' },
           ].map(({ step, title, desc, icon }) => (
@@ -654,7 +650,7 @@ function App() {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '2rem 0', borderTop: '2px solid #000', marginTop: '1rem' }}>
-        <p style={{ fontWeight: 800, fontSize: '0.85rem', opacity: 0.5 }}>SOLOKNUCKLE v0.1.0 — Production Hygiene, Enforced Locally.</p>
+        <p style={{ fontWeight: 800, fontSize: '0.85rem', opacity: 0.5 }}>SOLOKNUCKLE v1.0.0 — Production Hygiene, Enforced Locally.</p>
       </footer>
     </div>
   );

@@ -139,7 +139,7 @@ npx soloknuckle ui
 | `npx soloknuckle score` | Project health 0-100 across 7 domains | Numeric score + breakdown |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
-| `npx soloknuckle ui` | Launches web dashboard | http://localhost:3000 |
+| `npx soloknuckle ui` | Launches web dashboard | http://localhost:3001 |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
 | `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories | Persona files |
 | `npx soloknuckle capabilities` | Machine-readable command list for AI agents | JSON output |
@@ -274,7 +274,7 @@ soloknuckle/
 │   ├── config.ts                 # Configuration + provider registry
 │   ├── scanner.ts                # Secret detection engine
 │   ├── interceptor.ts            # Command firewall
-│   ├── scorer.ts                 # Project health scoring (13 dimensions)
+│   ├── scorer/                    # Project health scoring (13 dimensions, 7 domains)
 │   ├── gates.ts                  # Hard gate evaluation + scorecard
 │   ├── sbom.ts                   # CycloneDX SBOM generation
 │   ├── compliance.ts             # Self-compliance audit
@@ -479,7 +479,7 @@ Soloknuckle is built with security-first principles:
 
 | Protection | How It Works |
 |------------|--------------|
-| **Local-only** | All data stays in `~/.soloknuckle/` — nothing sent to external services |
+| **Local-only** | Nothing sent to external services. Config stays in `~/.soloknuckle/`; telemetry/watch/budget data stays in the project's `.soloknuckle/` |
 | **No telemetry** | Soloknuckle does not phone home |
 | **No PII collection** | No names, emails, or usage data collected |
 | **Rate limiting** | Prevents abuse of LLM API endpoints |
@@ -538,19 +538,19 @@ AI-generated commits have different failure modes than human ones. Soloknuckle d
 
 ### Most tools warn. Soloknuckle blocks.
 
-Linters suggest. Soloknuckle enforces. Hard gates on security, testing, reliability, and supply chain mean bad code physically cannot merge. Exit code 1. CI fails. No override.
+Linters suggest. Soloknuckle enforces. Hard gates on security, testing, reliability, and supply chain fail CI with exit code 1 in strict mode — so bad code can't silently merge.
 
 ### Most tools trust dependencies. Soloknuckle doesn't.
 
-Supply chain attacks grew 742% in 2024. Soloknuckle blocks known malicious IPs, detects typosquatting, audits package provenance, and enforces minimum package age — before a single byte installs.
+Soloknuckle scans your dependency tree for typosquatted package names and known-hostile packages, flags install-time scripts of origin (a common supply-chain vector), and verifies your lockfile is present and untouched so installs stay reproducible.
 
-### Most tools match patterns. Soloknuckle reads context.
+### Most tools match patterns. Soloknuckle checks behavior.
 
-Regex-based linters can't tell a real vulnerability from a test fixture. Soloknuckle's context-aware scanner understands file purpose, reduces false positives, and knows what's actually dangerous.
+Regex flags are the floor, not the ceiling. Soloknuckle pairs secret scanning with explicit tests for real behavior — mutation testing, contract checks, and build-time busting — so "tests pass" actually means the code still behaves.
 
 ### Most tools count tests. Soloknuckle counts failures.
 
-Every flaky test costs ~$100/month in wasted CI time and developer attention. Soloknuckle detects flaky patterns, estimates the real cost, and tells you which tests to kill first.
+A test suite that "runs" isn't a passing suite. Soloknuckle scores on actual failures and flags flaky patterns in your test code so you know which tests are eating CI minutes.
 
 ---
 

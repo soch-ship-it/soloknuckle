@@ -8,7 +8,6 @@ import {
   printScoreSummary,
   printCheckSection,
   printSummary,
-  buildIssuesFromScores,
   Issue,
   CheckResult,
 } from './reporter';
@@ -255,11 +254,24 @@ export async function runCheck(options: CheckOptions = {}): Promise<void> {
   const metrics = calculateMetrics();
   const totalScore = metrics.overall;
 
+  // Evaluate hard gates regardless of output format so `--format json` (used by
+  // CI) cannot silently hide gate failures.
+  const report = evaluateGates(metrics);
+
   if (isJson) {
     const jsonOutput = {
       score: totalScore,
       scores,
       issues: allIssues,
+      hardGates: {
+        passed: report.gateResult.passed,
+        gates: report.gateResult.gates.map((g) => ({
+          name: g.name,
+          passed: g.passed,
+          score: g.score,
+          threshold: g.threshold,
+        })),
+      },
       dimensions: {
         quality: metrics.quality.score,
         testing: metrics.testing.score,
@@ -277,7 +289,7 @@ export async function runCheck(options: CheckOptions = {}): Promise<void> {
       },
     };
     console.log(JSON.stringify(jsonOutput, null, 2));
-    if (allIssues.some((i) => i.severity === 'critical')) {
+    if (allIssues.some((i) => i.severity === 'critical') || !report.gateResult.passed) {
       process.exit(1);
     }
     return;
@@ -287,7 +299,6 @@ export async function runCheck(options: CheckOptions = {}): Promise<void> {
   printSummary(totalScore, allIssues);
 
   // 7-Domain Scorecard display
-  const report = evaluateGates(metrics);
   printSevenDomainScorecard(report.scorecard);
 
   // Hard gates in strict mode
@@ -314,14 +325,9 @@ async function attemptFixes(issues: Issue[]): Promise<void> {
 
   for (const issue of issues) {
     if (issue.fix && issue.category === 'Dependencies') {
-      try {
-        console.log(chalk.dim('     Running npm audit fix...'));
-        execSync('npm audit fix', { stdio: 'ignore', cwd: process.cwd() });
-        console.log(chalk.green('     \u{2713} Fixed dependency issues'));
-        fixedCount++;
-      } catch {
-        console.log(chalk.yellow('     \u{26A0}\u{FE0F} Could not auto-fix dependencies'));
-      }
+      // `npm audit fix` upgrades transitive deps and can break builds, so it
+      // must never run unattended from `check --fix`. Recommend it instead.
+      console.log(chalk.yellow('     \u{26A0}\u{FE0F} Skipping auto-fix: run `npm audit fix` manually after reviewing the changes.'));
     }
 
     if (issue.category === 'Documentation') {
