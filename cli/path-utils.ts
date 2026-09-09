@@ -36,11 +36,14 @@ export function findFiles(patterns: string[]): string[] {
         continue;
       }
       const rel = path.relative(process.cwd(), itemPath);
-      const parts = rel.split(/[\\/]/);
+      // Normalize to forward slashes so glob patterns ('src/**/*.ts') match
+      // the same way on every platform — path.relative uses '\' on Windows.
+      const relPosix = rel.split(path.sep).join('/');
+      const parts = relPosix.split('/');
       if (parts.includes('node_modules') || parts.some(p => p.startsWith('.'))) continue;
-      if (re.test(rel) && !seen.has(rel)) {
-        seen.add(rel);
-        matches.push(rel);
+      if (re.test(relPosix) && !seen.has(relPosix)) {
+        seen.add(relPosix);
+        matches.push(relPosix);
       }
     }
   }
