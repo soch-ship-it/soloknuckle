@@ -12,7 +12,8 @@
     "soloknuckle-mcp": "dist/cli/mcp-server.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "scripts": {
     "build": "tsc",
