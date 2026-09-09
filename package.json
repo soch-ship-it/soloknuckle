@@ -8,8 +8,8 @@
     "node": ">=20"
   },
   "bin": {
-    "soloknuckle": "./dist/cli/index.js",
-    "soloknuckle-mcp": "./dist/cli/mcp-server.js"
+    "soloknuckle": "dist/cli/index.js",
+    "soloknuckle-mcp": "dist/cli/mcp-server.js"
   },
   "files": [
     "dist"
