@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  gate:
+    name: Test gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+  publish:
+    name: Publish to npm
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches package version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$TAG_NAME" != "$PKG_VERSION" ]; then
+            echo "::error::Tag $TAG_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag $TAG_NAME matches package version $PKG_VERSION"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify published package
+        run: |
+          sleep 10
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          npm view "soloknuckle@$PKG_VERSION" version dist.shasum
+
+  release-binaries:
+    name: GitHub release with binaries
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build release binaries
+        run: npm run build:bin
+
+      - name: Publish GitHub release with binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          name: soloknuckle ${{ github.ref_name }}
+          body: |
+            ## Soloknuckle ${{ github.ref_name }}
+
+            Production hygiene CLI — pre-flight checks, secret scanning, agent firewall, MCP, and a rollback daemon.
+
+            Install:
+            \`curl -fsSL https://raw.githubusercontent.com/soch-ship-it/soloknuckle/main/install.sh | bash\`
+
+            Or via npm: \`npm install -g soloknuckle\`
+
+            Verify the package on npm: https://www.npmjs.com/package/soloknuckle
+          files: dist-bin/soloknuckle-*.tar.gz
