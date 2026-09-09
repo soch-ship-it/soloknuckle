@@ -9,7 +9,7 @@ describe('scanDiffForSecretsAndPII', () => {
   });
 
   it('should detect Stripe live keys', () => {
-    const diff = `+ const stripeKey = "REDACTED";`;
+    const diff = '+ const stripeKey = "' + 'sk_live_' + '1234567890abcdefgh123456";';
     const violations = scanDiffForSecretsAndPII(diff);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('secret/API key');
