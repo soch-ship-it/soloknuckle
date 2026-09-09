@@ -250,5 +250,4 @@ describe('notifications/initialized', () => {
       expect(res).toBeUndefined();
     });
   });
-  });
 });

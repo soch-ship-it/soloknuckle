@@ -245,7 +245,7 @@ describe('check command', () => {
     expect(execSpy).toHaveBeenCalledWith('npm run lint -- --fix', expect.anything());
   });
 
-  it('should run npm audit fix when dependency fix is triggered', async () => {
+  it('should NOT auto-run npm audit fix when dependency fix is triggered (manual review required)', async () => {
     const { getDependencyScore } = await import('../cli/scorer');
     (getDependencyScore as ReturnType<typeof vi.fn>).mockReturnValue({ score: 50 });
 
@@ -254,7 +254,7 @@ describe('check command', () => {
 
     const { execSync } = await import('child_process');
     const execSpy = vi.mocked(execSync);
-    expect(execSpy).toHaveBeenCalledWith('npm audit fix', expect.anything());
+    expect(execSpy).not.toHaveBeenCalledWith('npm audit fix', expect.anything());
   });
 
   it('should init git repo when git hygiene fix is triggered', async () => {
