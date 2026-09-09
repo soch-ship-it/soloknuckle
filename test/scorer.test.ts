@@ -173,7 +173,7 @@ describe('getSecurityScore', () => {
     mockExecForSecurity(
       '+++ b/config.ts\n' +
       '+' + 'sk_live_' + 'TEST0000000000000000000000\n' +
-      '+REDACTED\n' +
+      '+' + 'xoxb-' + 'TEST-TOKEN-00000\n' +
       '+apikey000000000000000TEST\n' +
       '+real@email.com\n' +
       '+987-65-4321\n'
