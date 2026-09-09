@@ -1,15 +1,12 @@
-<p align="center">
-  <img src="assets/soloknuckle-logo.svg" alt="SOLO KNUCKLE" width="560">
-</p>
-
-<h1 align="center">Soloknuckle</h1>
+# Soloknuckle — Production Hygiene for AI-Assisted Development
 
 <p align="center">
-  <strong>Production hygiene for AI-assisted development.</strong><br>
-  Catches what AI leaves behind — leaked secrets, destructive commands, flaky tests,
-  and 100% coverage that catches 4% of bugs. One command. Zero config. Runs on your
-  machine, not someone else's cloud.
+  <img src="assets/soloknuckle-logo.svg" alt="SOLO KNUCKLE wordmark" width="560">
 </p>
+
+**Soloknuckle** is a free, open-source CLI that runs [production hygiene](#core-commands-free-no-api-key) checks — secret scanning, a destructive-command firewall, mutation testing, AI-vs-human telemetry, and hard CI gates — on Node.js projects before they ship. One command (`npx soloknuckle init`), zero config, everything runs locally on Node.js 20+.
+
+It is built for **AI-assisted development**: code written or reviewed by Cursor, Claude Code, Copilot, Windsurf, or any coding agent. Those tools ship fast and fail in specific, repeatable ways — leaked API keys, `rm -rf` in a shell step, tests that pass without testing anything, dependencies nobody pinned. Soloknuckle catches exactly those failure modes before they reach production.
 
 <p align="center">
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
@@ -21,36 +18,32 @@
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
 </p>
 
-<details>
-<summary>█▓▒ ASCII banner (for terminal romantics)</summary>
-
-```
- ██████  ██████ ███      █████▄    ███  ██▀███   ██▀██    ██ ██████ ██   █████     ███████
-██▀     ██▀  ▄█████    ▄██   ██▄   ▄██▄██  ████▄ ██▄██    ████▄     ██ ███  ██     ██▄
-██████▄ ██    ██▄█▄    ▄█▄   ███   ▄███▄   ▄█▄██▄▄█▄▄█    ██▄█▄     ████    ██     ██████
-     ██ ██    ██▄█▄    ▄██   ███   ▄██▀█▄  ██▄ ▀███ ██    ██▄█▄     ██ ██▄  ██     ██▀
-▄▄▄▄▄█▀ ▀██████ ▀██▄▄▄▄ ██▄▄▄█▀▀   ▄█▄ ▀██▄██▄  ▀██ ▀██████  ██████ ██  ███▄██████▄▀██▄▄▄▄
-█▀▀▀▀▀   █▀▀▀▀█  █▀▀▀▀▀ ▀▀▀▀▀▀     ▀▀   ▀▀ ▀▀    █▀  ▀▀▀▀▀▀  ▀▀▀▀▀▀ ▀▀    ▀▄ █▀▀▀▀  ▀▀▀▀▀█
-```
-
-</details>
-
 ---
 
-## Why Soloknuckle
+## Table of Contents
 
-The gap between "tests pass" and "production is safe" is where bugs live. Soloknuckle closes it:
-
-- **Most tools scan code. Soloknuckle knows who wrote it.** AI-generated commits fail differently than human ones. Soloknuckle detects AI-authored code, tracks acceptance rates, and quarantines repeat offenders — so you review the right things.
-- **Most tools warn. Soloknuckle blocks.** Hard gates on security, testing, reliability, and supply chain fail CI with exit code 1 — bad code can't silently merge.
-- **Most tools count tests. Soloknuckle counts failures.** Mutation testing breaks your code on purpose and checks whether your tests notice. 100% line coverage can mean 4% bug detection.
-- **Most tools trust dependencies. Soloknuckle doesn't.** Typo-squatted names, install-time scripts, missing lockfiles — surfaced before they surface in the news.
+- [Quick Start](#quick-start)
+- [What Soloknuckle Actually Does](#what-soloknuckle-actually-does)
+- [Commands Reference](#commands-reference)
+- [7-Domain Scorecard](#7-domain-scorecard)
+- [Hard Gates (`--strict`)](#hard-gates--strict)
+- [Unique Testing Features](#unique-testing-features)
+- [MCP Server for AI Agents](#mcp-server-for-ai-agents)
+- [IDE Integration](#ide-integration)
+- [LLM Configuration (Optional)](#llm-configuration-optional)
+- [Security](#security)
+- [What Soloknuckle Does NOT Do](#what-soloknuckle-does-not-do)
+- [Who Is It For](#who-is-it-for)
+- [Architecture & Project Structure](#architecture--project-structure)
+- [Testing](#testing)
+- [Updating](#updating)
+- [Contributing](#contributing)
+- [FAQ](#faq)
+- [License](#license)
 
 ---
 
 ## Quick Start
-
-Requires **Node.js ≥ 20**. No account, no API key, no config.
 
 ```bash
 # 1. Initialize (scaffolds git hooks, AGENTS.md, IDE rules)
@@ -64,13 +57,31 @@ npx soloknuckle check
 npx soloknuckle check --strict
 ```
 
-**Recommended CI setup** — add one line to your pipeline:
+Requires Node.js ≥ 20. No account, no API key, no config.
+
+**Add to CI (one line):**
 
 ```yaml
 - run: npx soloknuckle check --strict
 ```
 
-Merges that fail the [hard gates](#hard-gates--strict-mode) are blocked automatically.
+Merges that fail the [hard gates](#hard-gates--strict) are blocked automatically.
+
+---
+
+## What Soloknuckle Actually Does
+
+Five things, all local, all free:
+
+| Capability | What it means in practice |
+|---|---|
+| **Secret scanning** | Scans staged code and diffs for API keys, tokens, and PII before commit/push |
+| **Command firewall** | Blocks destructive patterns — `rm -rf`, `git push --force`, `chmod 777`, `curl \| sh`, SQL drops — before they execute |
+| **Mutation testing gate** | Breaks your code on purpose (5 mutation types), then checks whether your tests notice. Exposes "100% coverage, 4% bug detection" |
+| **AI vs human telemetry** | Tracks how much of your codebase is AI-authored, per week, and flags repeat-offender patterns |
+| **Hard CI gates** | Four minimum scores (security, testing, reliability, supply chain) — failing CI exits non-zero so bad merges are blocked |
+
+Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback webhooks — builds on those five.
 
 ---
 
@@ -81,9 +92,9 @@ Merges that fail the [hard gates](#hard-gates--strict-mode) are blocked automati
 | Command | Description | Output |
 |---------|-------------|--------|
 | `npx soloknuckle init` | Scaffolds AGENTS.md, git hooks, IDE rules, MCP config | Files created in project |
-| `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Human-friendly score report |
-| `npx soloknuckle check --fix` | Auto-fix issues (lint, deps, git, CI, docs) | Fixes applied automatically |
-| `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail with minimum thresholds |
+| `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
+| `npx soloknuckle check --fix` | Auto-fix issues (lint, deps, git, CI, docs) | Fixes applied |
+| `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
 | `npx soloknuckle score` | Project health 0–100 across 7 domains | Numeric score + breakdown |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
@@ -103,17 +114,7 @@ On the first LLM-command run, Soloknuckle asks for a provider and key (or local 
 
 ---
 
-## 7-Domain Scorecard Model
-
-| Domain | What It Checks | Weight |
-|--------|----------------|--------|
-| **Code Quality** | Linting, formatting, TypeScript, complexity | 20% |
-| **Testing** | Unit tests, E2E tests, coverage | 20% |
-| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 20% |
-| **Performance** | Bundle size, lazy loading, optimization | 10% |
-| **Reliability** | Error tracking, retries, health checks | 10% |
-| **Dependencies & Supply Chain** | Lockfiles, pinned deps, SBOM | 10% |
-| **Documentation & Visibility** | README, CHANGELOG, LICENSE | 10% |
+## 7-Domain Scorecard
 
 ```
 ┌─────────────────────────────────────────┐
@@ -130,7 +131,19 @@ On the first LLM-command run, Soloknuckle asks for a provider and key (or local 
 └─────────────────────────────────────────┘
 ```
 
-### Hard Gates (`--strict` mode)
+| Domain | What It Checks | Weight |
+|--------|----------------|--------|
+| **Code Quality** | Linting, formatting, TypeScript, complexity | 20% |
+| **Testing** | Unit tests, E2E tests, coverage | 20% |
+| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 20% |
+| **Performance** | Bundle size, lazy loading, optimization | 10% |
+| **Reliability** | Error tracking, retries, health checks | 10% |
+| **Dependencies & Supply Chain** | Lockfiles, pinned deps, SBOM | 10% |
+| **Documentation & Visibility** | README, CHANGELOG, LICENSE | 10% |
+
+---
+
+## Hard Gates (`--strict`)
 
 | Gate | Minimum Score | Why It Matters |
 |------|---------------|----------------|
@@ -145,7 +158,7 @@ If any gate fails, the command exits with code 1 — perfect for CI/CD pipelines
 
 ## Unique Testing Features
 
-These features attack failure modes that AI-assisted development introduces. They run automatically as part of `check --strict` — no extra setup.
+These four features attack failure modes that AI-assisted development introduces. They run automatically as part of `check --strict` — no extra setup.
 
 ### 1. Mutation Testing Gate — the coverage-illusion killer
 
@@ -165,9 +178,9 @@ Finds flaky patterns (`setTimeout`, `Math.random`, `Date`, network calls), runs 
 
 ---
 
-## MCP Server (Model Context Protocol)
+## MCP Server for AI Agents
 
-Soloknuckle ships with an MCP server so AI coding agents (Claude Desktop, Cursor, Windsurf, etc.) can call its tools directly.
+Soloknuckle ships with an [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Desktop, Cursor, Windsurf, etc.) can call its tools directly.
 
 ```json
 {
@@ -226,7 +239,7 @@ Agent:  "Found a secret. Fixing it before proceeding."
 
 ---
 
-## LLM Configuration
+## LLM Configuration (Optional)
 
 Only needed for `audit` and `pr`. Everything else works with zero configuration.
 
@@ -306,7 +319,7 @@ npm audit                # check for known vulnerabilities
 
 ### CI
 
-GitHub Actions runs on every PR: security audit, typecheck, lint, and the test matrix on Node 22 and 24. Actions are pinned to major versions and the release pipeline requires a repo secret that is never exposed to forks.
+GitHub Actions runs on every PR: security audit, typecheck, lint, and the test matrix on Node 22 and 24. Release publishing uses a repo secret that is never exposed to forks, and npm provenance ties every artifact to this repository.
 
 ### Responsible disclosure
 
@@ -334,7 +347,7 @@ Found a security vulnerability? Please report it privately — see [SECURITY.md]
 
 ---
 
-## Architecture
+## Architecture & Project Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -376,14 +389,10 @@ Found a security vulnerability? Please report it privately — see [SECURITY.md]
 
 User/Agent ──▶ CLI Command ──▶ Core Module ──▶ Git Hooks / Webhooks
                   │                │                │
-                  ▼                ▼                ▼
+                  ▼                ▼                ▢
               Pre-flight       Filesystem       Rollback Daemon
               checks           (~/.soloknuckle/)  auto-revert
 ```
-
----
-
-## Project Structure
 
 ```
 soloknuckle/
@@ -405,8 +414,9 @@ soloknuckle/
 │   ├── telemetry.ts          # AI vs human tracking
 │   ├── rollback.ts           # Auto-rollback daemon + webhooks
 │   ├── mcp-server.ts         # MCP server for AI agents
-│   └── ...                   # config, personas, pr-enforcer, budget, ai-watcher├── test/                      # 28 test suites, 441 tests
-├── git-hooks/                # pre-commit, commit-msg hook scripts
+│   └── ...                   # config, personas, pr-enforcer, budget, ai-watcher
+├── test/                     # 28 test suites, 441 tests
+├── git-hooks/                # pre-commit, pre-push, commit-msg hook scripts
 ├── templates/                # Feature flag templates
 ├── scripts/                  # Setup + asset generation scripts
 ├── assets/                   # Logo (SVG + ASCII), generated from source art
@@ -454,6 +464,31 @@ npm test
 ```
 
 Please run `npx soloknuckle check` on your own PRs. Soloknuckle practices what it preaches — `npx soloknuckle compliance` audits this repo against its own standards.
+
+---
+
+## FAQ
+
+**Is Soloknuckle free?**
+Yes — all core commands are free and open source (ISC). The two LLM commands (`audit`, `pr`) work free with local Ollama, or with your own API key.
+
+**Does my code leave my machine?**
+No. All checks run locally. The only network calls happen when you explicitly configure a cloud LLM provider for `audit`/`pr`.
+
+**Which AI tools does it work with?**
+Any that read files or run commands: Cursor, Claude Code, Copilot, Windsurf, Gemini CLI, Codex, Replit Agent, Lovable, and plain terminal agents. The MCP server adds native tool-calling for clients that support it.
+
+**Does it replace CI?**
+No — it runs *inside* your CI as a quality gate. Use GitHub Actions/GitLab CI for orchestration; Soloknuckle is the check that fails the build when hygiene standards aren't met.
+
+**What languages does it support?**
+Soloknuckle itself is TypeScript. Its checks are language-agnostic where possible (git hooks, secrets, commands) and TypeScript-aware where deep analysis helps. If your project runs on Node.js 20+, the CLI runs.
+
+**How is this different from ESLint or Snyk?**
+Linters check style; Snyk checks CVEs. Soloknuckle adds what neither covers: mutation testing, AI-vs-human telemetry, a destructive-command firewall, and cross-domain hard gates with exit codes your CI can enforce.
+
+**Why "Soloknuckle"?**
+Built for solo founders and small teams who move fast with AI and need a knuckle-dragging gatekeeper that refuses to let bad code through.
 
 ---
 
