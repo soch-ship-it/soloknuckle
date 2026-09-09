@@ -161,7 +161,7 @@ describe('getSecurityScore', () => {
     mockExecForSecurity(
       'diff --git a/config.ts b/config.ts\n' +
       '+++ b/config.ts\n' +
-      '+const key = "REDACTED"\n' +
+      '+const key = "' + 'sk_live_' + 'TEST0000000000000000000000"\n' +
       '+const ssn = "123-45-6789"\n'
     );
 
@@ -172,7 +172,7 @@ describe('getSecurityScore', () => {
   it('returns 0 when violations exceed 4', () => {
     mockExecForSecurity(
       '+++ b/config.ts\n' +
-      '+REDACTED\n' +
+      '+' + 'sk_live_' + 'TEST0000000000000000000000\n' +
       '+REDACTED\n' +
       '+apikey000000000000000TEST\n' +
       '+real@email.com\n' +
@@ -186,7 +186,7 @@ describe('getSecurityScore', () => {
   it('ignores deleted lines', () => {
     mockExecForSecurity(
       '+++ b/config.ts\n' +
-      '-REDACTED\n'
+      '-' + 'sk_live_' + 'TEST0000000000000000000000\n'
     );
 
     const result = getSecurityScore();
