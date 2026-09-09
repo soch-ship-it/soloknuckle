@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { findFiles as findFilesByGlob } from './path-utils';
 
 // ─── Mutation Testing Gate ──────────────────────────────────────────────────
 // Detects code that tests pass but behavior changes (Coverage Illusion)
@@ -295,29 +296,7 @@ export async function runMutationTesting(
 // ─── Helper to Find Files ──────────────────────────────────────────────────
 
 function findFiles(patterns: string[]): string[] {
-  const files: string[] = [];
-
-  for (const pattern of patterns) {
-    try {
-      // Simple glob implementation for common patterns
-      const [dir, ext] = pattern.split('**/');
-      const fullDir = path.join(process.cwd(), dir);
-
-      if (fs.existsSync(fullDir)) {
-        const items = fs.readdirSync(fullDir, { recursive: true });
-        for (const item of items) {
-          const itemPath = path.join(fullDir, String(item));
-          if (fs.statSync(itemPath).isFile() && itemPath.endsWith(ext)) {
-            files.push(path.relative(process.cwd(), itemPath));
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore errors in file finding
-    }
-  }
-
-  return [...new Set(files)];
+  return findFilesByGlob(patterns);
 }
 
 // ─── Gate Evaluation ───────────────────────────────────────────────────────

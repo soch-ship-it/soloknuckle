@@ -175,11 +175,21 @@ export function getDocumentationScore(): DimensionScore {
     for (const dir of srcDirs) {
       const fullDir = path.join(process.cwd(), dir);
       if (!fs.existsSync(fullDir)) continue;
-      const files = fs.readdirSync(fullDir).filter(f => f.endsWith('.ts') || f.endsWith('.js'));
-      for (const file of files) {
-        const content = fs.readFileSync(path.join(fullDir, file), 'utf-8');
-        docBlocks += (content.match(/\/\*\*[\s\S]*?\*\//g) || []).length;
-      }
+      const scanDir = (d: string) => {
+        if (!fs.existsSync(d)) return;
+        const entries = fs.readdirSync(d);
+        for (const entry of entries) {
+          if (entry === 'node_modules' || entry === '.git') continue;
+          const fp = path.join(d, entry);
+          if (fs.statSync(fp).isDirectory()) {
+            scanDir(fp);
+          } else if (fp.endsWith('.ts') || fp.endsWith('.js')) {
+            const content = fs.readFileSync(fp, 'utf-8');
+            docBlocks += (content.match(/\/\*\*[\s\S]*?\*\//g) || []).length;
+          }
+        }
+      };
+      scanDir(fullDir);
     }
     if (docBlocks > 10) {
       score += 10;

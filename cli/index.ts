@@ -21,7 +21,7 @@ import { callLLM } from './llm-client';
 import { calculateMetrics, generateSuggestions } from './scorer';
 import { runCheck } from './check';
 import { generateSbom, writeSbom } from './sbom';
-import { runCompliance } from './compliance';
+import { runCompliance, printComplianceReport } from './compliance';
 
 const program = new Command();
 
@@ -69,11 +69,11 @@ if [ "$branch" = "main" ]; then
   echo "❌ Direct pushes to main are blocked by Soloknuckle."
   exit 1
 fi
-echo "🛡️ Soloknuckle running pre-push checks..."
-npx soloknuckle check
-if [ $? -ne 0 ]; then
-  echo "❌ Soloknuckle check failed. Push aborted."
-  exit 1
+if command -v soloknuckle >/dev/null 2>&1; then
+  echo "🛡️ Soloknuckle running pre-push checks..."
+  soloknuckle check || { echo "❌ Soloknuckle check failed. Push aborted."; exit 1; }
+else
+  echo "⚠️ soloknuckle not installed; skipping pre-push check. Install with 'npm i -g soloknuckle'."
 fi
 exit 0`;
     fs.writeFileSync(prePushPath, hookContent);
@@ -81,11 +81,11 @@ exit 0`;
 
     const preCommitPath = path.join(hooksDir, 'pre-commit');
     const preCommitContent = `#!/usr/bin/env bash
-echo "🛡️ Soloknuckle checking for secrets/PII before commit..."
-npx soloknuckle check
-if [ $? -ne 0 ]; then
-  echo "❌ Pre-commit checks failed. Commit aborted."
-  exit 1
+if command -v soloknuckle >/dev/null 2>&1; then
+  echo "🛡️ Soloknuckle checking for secrets/PII before commit..."
+  soloknuckle check || { echo "❌ Pre-commit checks failed. Commit aborted."; exit 1; }
+else
+  echo "⚠️ soloknuckle not installed; skipping pre-commit check. Install with 'npm i -g soloknuckle'."
 fi
 exit 0`;
     fs.writeFileSync(preCommitPath, preCommitContent);
@@ -132,7 +132,7 @@ ${agentInstructions}`;
       mcpServers: {
         soloknuckle: {
           command: "npx",
-          args: ["soloknuckle", "capabilities"]
+          args: ["-y", "soloknuckle-mcp"]
         }
       }
     }, null, 2);
@@ -143,41 +143,27 @@ ${agentInstructions}`;
   console.log(chalk.cyan('✨ Initialization complete. Your project is now fully protected and Multi-Pronged Agent-Ready.'));
 }
 
-// Default action when no args are provided: auto-detect and run the right command
+// Default action when no args are provided: show usage. Never mutates the
+// current directory or auto-runs checks without an explicit command.
 if (process.argv.length <= 2) {
-  (async () => {
-    const target = process.cwd();
-    const agentsMd = path.join(target, 'AGENTS.md');
-    const isInitialized = fs.existsSync(agentsMd);
-
-    if (!isInitialized) {
-      // First time: auto-init
-      console.log(chalk.cyan.bold('\n🛡️  Soloknuckle — First-time setup\n'));
-      console.log(chalk.white('No AGENTS.md found. Setting up production hygiene for this project...\n'));
-      runInit(target);
-      console.log(chalk.green.bold('\n✅ You\'re protected! Run this before every push:\n'));
-      console.log(chalk.white('   npx soloknuckle check --strict\n'));
-      console.log(chalk.dim('Other commands:'));
-      console.log(chalk.dim('   npx soloknuckle audit    — review AI-generated code'));
-      console.log(chalk.dim('   npx soloknuckle score    — see your health score'));
-      console.log(chalk.dim('   npx soloknuckle ui       — open the dashboard'));
-      console.log(chalk.dim('   npx soloknuckle sbom     — generate SBOM'));
-      console.log(chalk.dim('   npx soloknuckle compliance — audit compliance\n'));
-    } else {
-      // Already initialized: run check
-      console.log(chalk.cyan.bold('\n🛡️  Soloknuckle — Production check\n'));
-      console.log(chalk.dim('Running pre-flight checks...\n'));
-      await runCheck({ fix: false });
-      console.log(chalk.dim('\nOther commands:'));
-      console.log(chalk.dim('   npx soloknuckle audit    — review AI-generated code'));
-      console.log(chalk.dim('   npx soloknuckle score    — see your health score'));
-      console.log(chalk.dim('   npx soloknuckle ui       — open the dashboard'));
-      console.log(chalk.dim('   npx soloknuckle init     — re-run setup'));
-      console.log(chalk.dim('   npx soloknuckle sbom     — generate SBOM'));
-      console.log(chalk.dim('   npx soloknuckle compliance — audit compliance\n'));
-    }
-    process.exit(0);
-  })();
+  console.log(chalk.cyan.bold('\n🛡️  Soloknuckle — Production Hygiene CLI\n'));
+  console.log(chalk.white('Usage: npx soloknuckle <command> [options]\n'));
+  console.log(chalk.dim('Commands:'));
+  console.log(chalk.dim('  init        — scaffold AGENTS.md, git hooks, IDE rules'));
+  console.log(chalk.dim('  check       — run strict pre-flight checks (lint, test, typecheck, secrets)'));
+  console.log(chalk.dim('  score       — calculate the 0-100 project health score'));
+  console.log(chalk.dim('  audit       — LLM review of uncommitted code'));
+  console.log(chalk.dim('  compliance  — audit against production hygiene standards'));
+  console.log(chalk.dim('  sbom        — generate a CycloneDX-like SBOM'));
+  console.log(chalk.dim('  ui          — open the local dashboard'));
+  console.log(chalk.dim('  watch       — start the rollback daemon + webhook listener'));
+  console.log(chalk.dim('  persona     — generate directory-specific agent rules'));
+  console.log(chalk.dim('  pr          — auto-generate a PR description'));
+  console.log(chalk.dim('  telemetry   — view agent telemetry'));
+  console.log(chalk.dim('  capabilities — list agent-facing capabilities\n'));
+  console.log(chalk.dim('Run `npx soloknuckle <command> --help` for details.'));
+  console.log(chalk.dim('Run `npx soloknuckle init` first to protect a project.'));
+  process.exit(0);
 } else {
   // If arguments exist, commander will parse them normally
 }
@@ -263,33 +249,43 @@ program
 program
   .command('ui')
   .description('Launches the local Neo-Brutalist Web UI')
-  .action(() => {
+  .option('-p, --port <port>', 'Port to listen on', '3001')
+  .option('--host <host>', 'Host to bind to', '127.0.0.1')
+  .action((options) => {
     console.log(chalk.magenta('🎨 Launching Founder Control Center UI...'));
-    console.log(chalk.white('To view the UI during development, navigate to the "ui" directory and run "npm run dev".'));
-    
-    const { createApp } = require('./app');
+
+    const { createApp } = require('./app') as typeof import('./app');
     const app = createApp();
 
-
-    // Serve the pre-built UI static files
-    const uiDistPath = path.join(__dirname, '..', '..', 'ui', 'dist');
-    if (fs.existsSync(uiDistPath)) {
+    // Serve a pre-built UI if one is present (repo checkout or local build),
+    // otherwise fall back to the Vite dev server.
+    const candidates = [
+      path.join(__dirname, '..', '..', 'ui', 'dist'),
+      path.join(process.cwd(), 'ui', 'dist'),
+      path.join(__dirname, '..', '..', 'dist-extra', 'ui'),
+    ];
+    const uiDistPath = candidates.find((p) => fs.existsSync(path.join(p, 'index.html')));
+    if (uiDistPath) {
       app.use(express.static(uiDistPath));
       console.log(chalk.blue(`Serving UI from compiled distribution: ${uiDistPath}`));
     } else {
-      console.log(chalk.yellow('UI Dist folder not found (likely in dev mode). Attempting to run Vite dev server...'));
-      try {
-        // Run asynchronously so we don't block the backend listening below
+      const uiDevPath = path.join(process.cwd(), 'ui');
+      if (fs.existsSync(path.join(uiDevPath, 'package.json'))) {
+        console.log(chalk.yellow('UI dist not found. Launching Vite dev server...'));
         const { spawn } = require('child_process') as typeof import('child_process');
-        spawn('npm', ['run', 'dev'], { cwd: path.join(__dirname, '..', '..', 'ui'), stdio: 'inherit', shell: true });
-      } catch (e) {
-        console.log(chalk.red('Could not launch UI dev server.'));
+        spawn('npm', ['run', 'dev'], { cwd: uiDevPath, stdio: 'inherit', shell: true });
+      } else {
+        console.log(chalk.yellow('Dashboard assets are not shipped with the npm package.'));
+        console.log(chalk.dim('The CLI commands (check/score/audit/sbom/compliance) work without the dashboard.'));
+        console.log(chalk.dim('To use the dashboard, clone the repository and build ui/ or run `npm run dev` inside ui/.'));
+        return;
       }
     }
 
-    const PORT = 3001;
-    app.listen(PORT, () => {
-      console.log(chalk.green(`✅ Founder Control Center is live at http://localhost:${PORT}`));
+    const PORT = Number(options.port);
+    const HOST = options.host;
+    app.listen(PORT, HOST, () => {
+      console.log(chalk.green(`✅ Founder Control Center is live at http://${HOST === '127.0.0.1' ? 'localhost' : HOST}:${PORT}`));
     });
   });
 
@@ -342,7 +338,7 @@ program
 
 program
   .command('score')
-  .description('Calculates the health of the project across 13 dimensions')
+  .description('Calculates the health of the project across 7 domains')
   .action(async () => {
     console.log(chalk.magenta('🔍 Calculating Vibe Score...'));
     const metrics = calculateMetrics();
@@ -373,7 +369,8 @@ program
   .command('compliance')
   .description('Audit your codebase for production hygiene compliance')
   .action(() => {
-    runCompliance();
+    const report = runCompliance();
+    printComplianceReport(report);
   });
 
 if (process.argv.length > 2) {

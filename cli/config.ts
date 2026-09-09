@@ -57,6 +57,12 @@ export function saveConfig(config: SoloknuckleConfig) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  // Config contains plaintext API keys — make sure only the owner can read it.
+  try {
+    fs.chmodSync(CONFIG_FILE, 0o600);
+  } catch {
+    // chmod may be a no-op on some platforms; not worth failing the save.
+  }
 }
 
 export async function getOrPromptApiKey(): Promise<string> {

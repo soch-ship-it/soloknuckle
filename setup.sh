@@ -18,6 +18,18 @@ set -e
 HYGIENE_SRC="${HYGIENE_SRC:-$(dirname "$0")}"
 TARGET="$(pwd)"
 
+# When piped via `curl ... | bash`, "$0" doesn't point at the script file, so
+# the sibling AGENTS.md / scripts / templates / git-hooks are not next to us.
+# Fall back to a shallow clone of the kit so one-command install still works.
+if [ ! -f "$HYGIENE_SRC/AGENTS.md" ]; then
+  KIT_TMP="$(mktemp -d)"
+  trap 'rm -rf "$KIT_TMP"' EXIT
+  echo "Source kit not found locally — fetching production hygiene kit..."
+  command -v git >/dev/null 2>&1 || { echo "❌ git is required to fetch the kit."; exit 1; }
+  git clone --depth 1 https://github.com/z99wE/soloknuckle.git "$KIT_TMP/kit" >/dev/null 2>&1
+  HYGIENE_SRC="$KIT_TMP/kit"
+fi
+
 echo "🚀 Installing production hygiene into: $TARGET"
 echo ""
 
@@ -33,7 +45,20 @@ cp -r "$HYGIENE_SRC/scripts" "$TARGET/scripts"
 cp -r "$HYGIENE_SRC/workflow" "$TARGET/workflow"
 chmod +x "$TARGET/scripts/"*.sh
 
-# 2. Install the git hooks
+# 2. Ensure git + branches
+if [ ! -d "$TARGET/.git" ]; then
+  echo "📁 Initializing git repo..."
+  git init
+fi
+
+# 3. Initial commit of the hygiene files — do this BEFORE installing the hooks,
+#    because the pre-commit hook refuses commits on main/develop by design.
+git checkout -b develop 2>/dev/null || git checkout develop
+
+git add AGENTS.md flags.json .hygiene/ scripts/ workflow/
+git diff --cached --quiet || git commit -m "chore: install production hygiene kit (AGENTS.md, scripts, flags)"
+
+# 4. Install the git hooks
 echo "🛡️  Installing safety hooks..."
 mkdir -p "$TARGET/.git/hooks"
 
@@ -64,18 +89,6 @@ cp "$HYGIENE_SRC/git-hooks/commit-msg" "$TARGET/.git/hooks/commit-msg"
 chmod +x "$TARGET/.git/hooks/commit-msg"
 
 echo "  Installed: pre-push, pre-commit, commit-msg hooks"
-
-# 3. Ensure git + branches
-if [ ! -d "$TARGET/.git" ]; then
-  echo "📁 Initializing git repo..."
-  git init
-fi
-
-git checkout -b develop 2>/dev/null || git checkout develop
-
-# 4. Initial commit of the hygiene files
-git add AGENTS.md flags.json .hygiene/ scripts/ workflow/
-git diff --cached --quiet || git commit -m "chore: install production hygiene kit (AGENTS.md, scripts, flags)"
 
 echo ""
 echo "✅ Hygiene kit installed. Next steps:"

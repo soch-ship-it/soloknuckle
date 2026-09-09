@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { findFiles as findFilesByGlob } from './path-utils';
 
 // ─── Flaky Test Detector ───────────────────────────────────────────────────
-// Detects intermittent test failures (Flaky Test Explosion)
-// This addresses the critical gap where $360K/month is spent maintaining 500 flaky tests
+// Detects tests that are likely to intermittently fail (Flaky Test Explosion)
+// Patterns are heuristic; scores rank files for prioritization.
 
 export interface FlakyTest {
   name: string;
@@ -219,7 +220,8 @@ export async function detectFlakyTests(
     ? Math.round(allFlakyTests.reduce((sum, t) => sum + t.flakyScore, 0) / allFlakyTests.length)
     : 0;
 
-  // Estimate maintenance cost ($100 per flaky test per month)
+  // Rough relative-severity heuristic (arbitrary unit), not a real dollar
+  // figure — useful for *ranking* which files to fix first.
   const estimatedMaintenanceCost = allFlakyTests.length * 100;
 
   // Calculate overall score
@@ -333,7 +335,7 @@ function parseTestOutput(output: string): Record<string, boolean> {
 // ─── Helper to Find Test Files ─────────────────────────────────────────────
 
 function findTestFiles(): string[] {
-  const patterns = [
+  return findFilesByGlob([
     '**/*.test.ts',
     '**/*.test.js',
     '**/*.spec.ts',
@@ -344,30 +346,7 @@ function findTestFiles(): string[] {
     'test/**/*.js',
     'tests/**/*.ts',
     'tests/**/*.js',
-  ];
-
-  const files: string[] = [];
-
-  for (const pattern of patterns) {
-    try {
-      const [dir, ext] = pattern.split('**/');
-      const fullDir = path.join(process.cwd(), dir || '.');
-
-      if (fs.existsSync(fullDir)) {
-        const items = fs.readdirSync(fullDir, { recursive: true });
-        for (const item of items) {
-          const itemPath = path.join(fullDir, String(item));
-          if (fs.statSync(itemPath).isFile() && itemPath.endsWith(ext)) {
-            files.push(path.relative(process.cwd(), itemPath));
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-  }
-
-  return [...new Set(files)];
+  ]);
 }
 
 // ─── Gate Evaluation ───────────────────────────────────────────────────────

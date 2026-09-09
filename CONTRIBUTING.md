@@ -42,7 +42,7 @@ soloknuckle/
 ├── cli/              # CLI source (TypeScript)
 │   ├── index.ts      # Main entry point
 │   ├── check.ts      # Human-friendly check command
-│   ├── scorer.ts     # 10-dimension scoring engine
+│   ├── scorer/        # 13-dimension scoring engine (7 domains)
 │   ├── reporter.ts   # Human-friendly output
 │   ├── scanner.ts    # Secret/PII scanner
 │   ├── config.ts     # Config loader

@@ -6,7 +6,14 @@ import { getErrorMessage, getExecErrorOutput, fileExists } from './helpers';
 import type { DimensionScore } from './types';
 // ─── Original 5 Pillars ────────────────────────────────────────────────────
 
+// Cache for quality results too — lint can be slow and is invoked multiple
+// times per single `check` run.
+let _lintResultCache: DimensionScore | null = null;
+let _lintCacheCwd: string = '';
+
 export function getQualityScore(): DimensionScore {
+  const cwd = process.cwd();
+  if (_lintResultCache && _lintCacheCwd === cwd) return _lintResultCache;
   try {
     const pkgPath = path.join(process.cwd(), 'package.json');
     if (fs.existsSync(pkgPath)) {
@@ -14,26 +21,46 @@ export function getQualityScore(): DimensionScore {
       if (pkg.scripts && pkg.scripts.lint) {
         try {
           execSync('npm run lint', { encoding: 'utf-8', cwd: process.cwd(), stdio: 'pipe' });
-          return { score: 100, rawOutput: 'Lint passed' };
+          _lintCacheCwd = cwd;
+          _lintResultCache = { score: 100, rawOutput: 'Lint passed' };
+          return _lintResultCache;
         } catch (e: unknown) {
           const output = getExecErrorOutput(e);
           const warningCount = (output.match(/warning/ig) || []).length;
           const errorCount = (output.match(/error/ig) || []).length;
           let score = 100 - (errorCount * 10) - (warningCount * 5);
           if (score < 0) score = 0;
-          return { score, rawOutput: output.substring(0, 1000) };
+          _lintCacheCwd = cwd;
+          _lintResultCache = { score, rawOutput: output.substring(0, 1000) };
+          return _lintResultCache;
         }
       }
     }
-    return { score: 50, rawOutput: 'No lint script found in package.json' };
+    _lintCacheCwd = cwd;
+    _lintResultCache = { score: 50, rawOutput: 'No lint script found in package.json' };
+    return _lintResultCache;
   } catch (err: unknown) {
-    return { score: 0, rawOutput: `Fatal error analyzing quality: ${getErrorMessage(err)}` };
+    _lintCacheCwd = cwd;
+    _lintResultCache = { score: 0, rawOutput: `Fatal error analyzing quality: ${getErrorMessage(err)}` };
+    return _lintResultCache;
   }
 }
 
 // Cache for test results to avoid re-running tests multiple times per invocation
 let _testResultCache: DimensionScore | null = null;
 let _testCacheCwd: string = '';
+
+// Parse the actual count of failing tests instead of counting the raw word
+// "fail" (which also matches speed strings like "12ms" and the word "failed"
+// wherever it appears in output, wildly inflating the penalty).
+function countFailedTests(output: string): number {
+  // Jest: "Tests: 5 failed, 42 passed, 47 total"
+  // Vitest: "Tests  5 failed | 9 passed"
+  const summary = output.match(/Tests:?\s+[\s\S]*?(\d+)\s+failed/i);
+  if (summary) return Number(summary[1]);
+  const failedWord = (output.match(/\bfailed\b/ig) || []).length;
+  return failedWord;
+}
 
 export function getTestingScore(): DimensionScore {
   const cwd = process.cwd();
@@ -50,7 +77,7 @@ export function getTestingScore(): DimensionScore {
           return _testResultCache;
         } catch (e: unknown) {
           const output = getExecErrorOutput(e);
-          const failCount = (output.match(/fail/ig) || []).length;
+          const failCount = countFailedTests(output);
           let score = 80 - (failCount * 20);
           if (score < 0) score = 0;
           _testCacheCwd = cwd;

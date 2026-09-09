@@ -62,8 +62,14 @@ if [ -f package.json ] && grep -q '"typecheck"' package.json; then
   npm run typecheck --silent || fail "Typecheck failed. Run 'npm run typecheck' to fix."
   ok "typecheck passed"
 elif [ -f tsconfig.json ]; then
-  npx --no-install tsc --noEmit || fail "TypeScript check failed."
-  ok "typecheck passed"
+  # `--no-install` avoids fetching tsc from the network. If typescript isn't
+  # installed locally, skip gracefully instead of hard-failing.
+  if command -v tsc >/dev/null 2>&1 || [ -x node_modules/.bin/tsc ]; then
+    npx --no-install tsc --noEmit || fail "TypeScript check failed."
+    ok "typecheck passed"
+  else
+    warn "tsconfig present but typescript not installed — skipping typecheck"
+  fi
 else
   warn "no tsconfig — skipping typecheck"
 fi
@@ -71,7 +77,12 @@ fi
 # ---------- 5. Tests ----------
 echo "5/7 Running tests..."
 if [ -f package.json ] && grep -qE '"test"\s*:' package.json; then
-  npm test --silent --run 2>&1 | tail -5 || fail "Tests failed. Run 'npm test' to see what."
+  TEST_OUTPUT=$(npm test --silent --run 2>&1 | tail -5)
+  TEST_RC=${PIPESTATUS[0]}
+  echo "$TEST_OUTPUT"
+  if [ "$TEST_RC" -ne 0 ]; then
+    fail "Tests failed. Run 'npm test' to see what."
+  fi
   ok "tests passed"
 else
   warn "no test script found — skipping"

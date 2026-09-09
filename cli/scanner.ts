@@ -1,5 +1,6 @@
 const SECRET_PATTERNS = [
   /sk_live_[0-9a-zA-Z]{24}/,                  // Stripe live key
+  /sk-[a-zA-Z0-9]{32}/,                       // OpenAI/Anthropic-style API key
   /xoxb-[0-9A-Za-z\-]+/,                      // Slack bot token
   /xoxp-[0-9A-Za-z\-]+/,                      // Slack user token
   /xoxe-[0-9A-Za-z\-]+/,                      // Slack app-level token

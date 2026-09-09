@@ -44,9 +44,6 @@ npm audit signatures
 
 # Check for known vulnerabilities
 npm audit
-
-# Install with provenance verification
-npm install soloknuckle --provenance
 ```
 
 ### Configuration

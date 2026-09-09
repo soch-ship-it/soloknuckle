@@ -8,12 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- **10-dimension production scoring** — security, testing, quality, efficiency, accessibility, dependencies, documentation, git hygiene, CI/CD, feature flags
+- **13-dimension scoring across 7 domains** — quality, testing, security, efficiency, accessibility, dependencies, documentation, git hygiene, CI/CD, feature flags, performance, reliability, supply chain
 - **Human-friendly CLI** — `soloknuckle check` with expandable `--fix` commands
 - **AI Watcher** — detects AI-authored commits, scans diffs, creates approval/quarantine branches
 - **Budget system** — enforce limits on AI agent actions (commits, edits, deploys, API calls)
 - **Sentry integration** — auto-detect AI commits as incident culprits, auto-revert, create reports
-- **MCP Server** — stdio-based server with 8 tools for AI agent integration
+- **MCP Server** — stdio-based server with 9 tools for AI agent integration
 - **Express API** — REST endpoints for scoring and health checks
 - **React dashboard** — neo-brutalist UI for visualizing scores
 - **Secret scanner** — detects API keys, passwords, tokens, PII in code
@@ -21,8 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Configurable weights** — customize dimension importance via `.soloknuckle/score-weights.json`
 - **Zero-config setup** — `npx soloknuckle init` just works
 - **Landing page** — SEO-optimized, deployable to Netlify/Vercel/GitHub Pages/Render
-- **CI pipeline** — GitHub Actions with Node 20/22 matrix, security audit, typecheck, lint, tests
-- **291 tests** across 18 test files
+- **CI pipeline** — GitHub Actions with Node 22/24 matrix, security audit, typecheck, lint, tests
+- **Test suite** — unit tests for CLI, scorer, API, MCP, scanner, and webhook logic
 - **ISC license** — free forever, no accounts, no cloud
 
 ### Security

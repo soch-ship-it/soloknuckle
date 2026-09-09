@@ -26,8 +26,8 @@ describe('MCP Server', () => {
   });
 
   describe('initialize', () => {
-    it('returns server info and capabilities', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' });
+    it('returns server info and capabilities', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' });
       expect(res.result).toEqual({
         protocolVersion: '2024-11-05',
         capabilities: { tools: {} },
@@ -38,8 +38,8 @@ describe('MCP Server', () => {
   });
 
   describe('tools/list', () => {
-    it('returns all registered tools', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    it('returns all registered tools', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
       const tools = (res.result as { tools: typeof TOOLS }).tools;
       expect(tools.length).toBe(9);
       expect(tools.map(t => t.name)).toContain('soloknuckle_score');
@@ -52,8 +52,8 @@ describe('MCP Server', () => {
       expect(tools.map(t => t.name)).toContain('soloknuckle_branches');
     });
 
-    it('each tool has name, description, and inputSchema', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 3, method: 'tools/list' });
+    it('each tool has name, description, and inputSchema', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 3, method: 'tools/list' });
       const tools = (res.result as { tools: typeof TOOLS }).tools;
       for (const tool of tools) {
         expect(tool.name).toBeTruthy();
@@ -65,8 +65,8 @@ describe('MCP Server', () => {
   });
 
   describe('unknown method', () => {
-    it('returns method not found error', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 4, method: 'unknown/method' });
+    it('returns method not found error', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 4, method: 'unknown/method' });
       expect(res.error).toEqual(
         expect.objectContaining({ code: -32601, message: expect.stringContaining('Unknown method') })
       );
@@ -74,8 +74,8 @@ describe('MCP Server', () => {
   });
 
   describe('tools/call - missing params', () => {
-    it('returns error when params missing', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 5, method: 'tools/call' });
+    it('returns error when params missing', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 5, method: 'tools/call' });
       expect(res.error).toEqual(
         expect.objectContaining({ code: -32602 })
       );
@@ -83,8 +83,8 @@ describe('MCP Server', () => {
   });
 
   describe('tools/call - unknown tool', () => {
-    it('returns error for unknown tool', () => {
-      const res = handleRequest({
+    it('returns error for unknown tool', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 6, method: 'tools/call',
         params: { name: 'nonexistent_tool', arguments: {} },
       });
@@ -95,8 +95,8 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_intercept', () => {
-    it('reports safe commands as not blocked', () => {
-      const res = handleRequest({
+    it('reports safe commands as not blocked', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 10, method: 'tools/call',
         params: { name: 'soloknuckle_intercept', arguments: { command: 'npm run build' } },
       });
@@ -106,8 +106,8 @@ describe('MCP Server', () => {
       expect(parsed.reason).toBeNull();
     });
 
-    it('reports destructive commands as blocked', () => {
-      const res = handleRequest({
+    it('reports destructive commands as blocked', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 11, method: 'tools/call',
         params: { name: 'soloknuckle_intercept', arguments: { command: 'rm -rf /' } },
       });
@@ -117,8 +117,8 @@ describe('MCP Server', () => {
       expect(parsed.reason).toBeTruthy();
     });
 
-    it('reports git push --force as blocked', () => {
-      const res = handleRequest({
+    it('reports git push --force as blocked', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 12, method: 'tools/call',
         params: { name: 'soloknuckle_intercept', arguments: { command: 'git push --force origin main' } },
       });
@@ -129,8 +129,8 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_secrets', () => {
-    it('reports clean diff as clean', () => {
-      const res = handleRequest({
+    it('reports clean diff as clean', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 20, method: 'tools/call',
         params: { name: 'soloknuckle_secrets', arguments: { diff: '+ const x = 1;' } },
       });
@@ -140,8 +140,8 @@ describe('MCP Server', () => {
       expect(parsed.violations).toEqual([]);
     });
 
-    it('detects API keys in diff', () => {
-      const res = handleRequest({
+    it('detects API keys in diff', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 21, method: 'tools/call',
         params: { name: 'soloknuckle_secrets', arguments: { diff: '+ const key = "api_key = "abcdef1234567890"' } },
       });
@@ -153,14 +153,14 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_flags', () => {
-    it('reads flags from flags.json', () => {
+    it('reads flags from flags.json', async () => {
       const flagsPath = path.join(process.cwd(), 'flags.json');
       const existed = fs.existsSync(flagsPath);
       const original = existed ? fs.readFileSync(flagsPath, 'utf-8') : null;
 
       fs.writeFileSync(flagsPath, JSON.stringify({ 'test-flag': true, 'other-flag': false }, null, 2));
 
-      const res = handleRequest({
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 30, method: 'tools/call',
         params: { name: 'soloknuckle_flags', arguments: {} },
       });
@@ -175,14 +175,14 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_flag_set', () => {
-    it('creates and sets a flag', () => {
+    it('creates and sets a flag', async () => {
       const flagsPath = path.join(process.cwd(), 'flags.json');
       const existed = fs.existsSync(flagsPath);
       const original = existed ? fs.readFileSync(flagsPath, 'utf-8') : null;
 
       fs.writeFileSync(flagsPath, JSON.stringify({}, null, 2));
 
-      const res = handleRequest({
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 31, method: 'tools/call',
         params: { name: 'soloknuckle_flag_set', arguments: { name: 'new-feature', enabled: true } },
       });
@@ -199,8 +199,8 @@ describe('MCP Server', () => {
       else if (!existed) fs.unlinkSync(flagsPath);
     });
 
-    it('returns error when name is missing', () => {
-      const res = handleRequest({
+    it('returns error when name is missing', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 32, method: 'tools/call',
         params: { name: 'soloknuckle_flag_set', arguments: { enabled: true } },
       });
@@ -211,8 +211,8 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_telemetry', () => {
-    it('returns telemetry data', () => {
-      const res = handleRequest({
+    it('returns telemetry data', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 40, method: 'tools/call',
         params: { name: 'soloknuckle_telemetry', arguments: {} },
       });
@@ -226,8 +226,8 @@ describe('MCP Server', () => {
   });
 
   describe('soloknuckle_score', () => {
-    it('returns score with all categories', () => {
-      const res = handleRequest({
+    it('returns score with all categories', async () => {
+      const res = await handleRequest({
         jsonrpc: '2.0', id: 50, method: 'tools/call',
         params: { name: 'soloknuckle_score', arguments: {} },
       });
@@ -244,10 +244,11 @@ describe('MCP Server', () => {
     });
   });
 
-  describe('notifications/initialized', () => {
-    it('returns empty result for initialized notification', () => {
-      const res = handleRequest({ jsonrpc: '2.0', id: 99, method: 'notifications/initialized' });
-      expect(res.result).toEqual({});
+describe('notifications/initialized', () => {
+    it('returns no response for initialized notification (JSON-RPC notifications stay silent)', async () => {
+      const res = await handleRequest({ jsonrpc: '2.0', id: 99, method: 'notifications/initialized' });
+      expect(res).toBeUndefined();
     });
+  });
   });
 });

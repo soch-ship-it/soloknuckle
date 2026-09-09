@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { getErrorMessage, fileExists, dirExists } from './helpers';
+import { getErrorMessage, fileExists } from './helpers';
 import type { DimensionScore } from './types';
 export function getGitHygieneScore(): DimensionScore {
   try {
@@ -76,22 +76,29 @@ export function getCIPipelineScore(): DimensionScore {
     let report = '';
 
     const ciPaths = [
-      { file: '.github/workflows', points: 40, label: 'GitHub Actions' },
-      { file: '.gitlab-ci.yml', points: 40, label: 'GitLab CI' },
-      { file: '.circleci/config.yml', points: 40, label: 'CircleCI' },
-      { file: '.travis.yml', points: 40, label: 'Travis CI' },
-      { file: 'Jenkinsfile', points: 40, label: 'Jenkins' },
-      { file: '.github/dependabot.yml', points: 10, label: 'Dependabot' },
+      { file: '.github/workflows', points: 40, label: 'GitHub Actions', isDir: true },
+      { file: '.gitlab-ci.yml', points: 40, label: 'GitLab CI', isDir: false },
+      { file: '.circleci/config.yml', points: 40, label: 'CircleCI', isDir: false },
+      { file: '.travis.yml', points: 40, label: 'Travis CI', isDir: false },
+      { file: 'Jenkinsfile', points: 40, label: 'Jenkins', isDir: false },
+      { file: '.github/dependabot.yml', points: 10, label: 'Dependabot', isDir: false },
     ];
 
     for (const ci of ciPaths) {
-      if (ci.file.endsWith('/')) {
-        // directory check
-        if (dirExists(ci.file)) {
-          score += ci.points;
-          report += `${ci.label}: detected.\n`;
+      if (ci.isDir) {
+        const full = path.join(process.cwd(), ci.file);
+        const exists = fs.existsSync(full) && fs.statSync(full).isDirectory();
+        if (exists) {
+          // Only count the workflow directory if it actually contains workflow files.
+          const hasWorkflow = fs
+            .readdirSync(full)
+            .some((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
+          if (hasWorkflow) {
+            score += ci.points;
+            report += `${ci.label}: detected.\n`;
+          }
         }
-      } else if (fileExists(ci.file)) {
+      } else if (fileExists(ci.file) && !fs.statSync(path.join(process.cwd(), ci.file)).isDirectory()) {
         score += ci.points;
         report += `${ci.label}: detected.\n`;
       }
@@ -105,12 +112,14 @@ export function getCIPipelineScore(): DimensionScore {
       let hasLint = false;
       let hasTypecheck = false;
       let hasSecurityAudit = false;
+      // Word-boundary regexes so "latest"/"protect" don't count as "test", etc.
+      const hasWord = (content: string, token: string) => new RegExp(`\\b${token}\\b`, 'i').test(content);
       for (const file of files) {
         const content = fs.readFileSync(path.join(workflowDir, file), 'utf-8');
-        if (content.includes('test') || content.includes('vitest') || content.includes('jest')) hasTest = true;
-        if (content.includes('lint') || content.includes('eslint')) hasLint = true;
-        if (content.includes('typecheck') || content.includes('tsc') || content.includes('type-check')) hasTypecheck = true;
-        if (content.includes('audit') || content.includes('snyk') || content.includes('codeql') || content.includes('gitleaks')) hasSecurityAudit = true;
+        if (['test', 'vitest', 'jest'].some((t) => hasWord(content, t))) hasTest = true;
+        if (['lint', 'eslint', 'eslint'].some((t) => hasWord(content, t))) hasLint = true;
+        if (['typecheck', 'tsc', 'type-check'].some((t) => hasWord(content, t))) hasTypecheck = true;
+        if (['audit', 'snyk', 'codeql', 'gitleaks', 'npm-audit'].some((t) => hasWord(content, t))) hasSecurityAudit = true;
       }
       if (hasTest) { score += 10; report += 'CI runs tests.\n'; }
       if (hasLint) { score += 10; report += 'CI runs linting.\n'; }
@@ -211,7 +220,6 @@ export function getFeatureFlagsScore(): DimensionScore {
     }
 
     if (score > 100) score = 100;
-    if (score === 0) score = 20; // baseline: not everyone uses flags yet
     return { score, rawOutput: report || 'No feature flag setup detected.' };
   } catch (err: unknown) {
     return { score: 50, rawOutput: `Error checking feature flags: ${getErrorMessage(err)}` };

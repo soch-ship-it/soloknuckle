@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { findFiles as findFilesByGlob } from './path-utils';
 
 // ─── Caller Contract Checker ───────────────────────────────────────────────
 // Verifies tests match actual function signatures (No Context Awareness)
@@ -289,33 +290,11 @@ export async function validateCallerContracts(
 // ─── Helper to Find Files ──────────────────────────────────────────────────
 
 function findSourceFiles(): string[] {
-  const patterns = ['src/**/*.ts', 'src/**/*.js', 'cli/**/*.ts', 'cli/**/*.js'];
-  const files: string[] = [];
-
-  for (const pattern of patterns) {
-    try {
-      const [dir, ext] = pattern.split('**/');
-      const fullDir = path.join(process.cwd(), dir);
-
-      if (fs.existsSync(fullDir)) {
-        const items = fs.readdirSync(fullDir, { recursive: true });
-        for (const item of items) {
-          const itemPath = path.join(fullDir, String(item));
-          if (fs.statSync(itemPath).isFile() && itemPath.endsWith(ext)) {
-            files.push(path.relative(process.cwd(), itemPath));
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-  }
-
-  return [...new Set(files)];
+  return findFilesByGlob(['src/**/*.ts', 'src/**/*.js', 'cli/**/*.ts', 'cli/**/*.js']);
 }
 
 function findTestFiles(): string[] {
-  const patterns = [
+  return findFilesByGlob([
     '**/*.test.ts',
     '**/*.test.js',
     '**/*.spec.ts',
@@ -326,30 +305,7 @@ function findTestFiles(): string[] {
     'test/**/*.js',
     'tests/**/*.ts',
     'tests/**/*.js',
-  ];
-
-  const files: string[] = [];
-
-  for (const pattern of patterns) {
-    try {
-      const [dir, ext] = pattern.split('**/');
-      const fullDir = path.join(process.cwd(), dir || '.');
-
-      if (fs.existsSync(fullDir)) {
-        const items = fs.readdirSync(fullDir, { recursive: true });
-        for (const item of items) {
-          const itemPath = path.join(fullDir, String(item));
-          if (fs.statSync(itemPath).isFile() && itemPath.endsWith(ext)) {
-            files.push(path.relative(process.cwd(), itemPath));
-          }
-        }
-      }
-    } catch (err) {
-      // Ignore errors
-    }
-  }
-
-  return [...new Set(files)];
+  ]);
 }
 
 // ─── Gate Evaluation ───────────────────────────────────────────────────────

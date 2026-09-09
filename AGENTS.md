@@ -60,17 +60,15 @@ If you cannot answer both, do not merge.
 
 ## 5. Quality Gates (run on every commit, block if failing)
 
-Before any commit lands, the pre-commit hook runs ALL of these. If any fail, the commit is refused and the developer is told what to fix.
+Where the generated `git-hooks/pre-commit` script is installed it runs: secret scan (grep), forbidden-pattern scan (grep), lint, typecheck, tests, quick a11y (grep), and branch checks. Lint/typecheck/tests only run when the project has the relevant npm scripts. For everything else, `npx soloknuckle check` (or the gates in your project's own CI) is the enforcement point — do not rely on a hook that may not be installed.
 
-| Gate | Tool | Pass criteria |
-|---|---|---|
-| Lint | `npm run lint` (or `eslint .`) | 0 errors, 0 warnings |
-| Types | `npm run typecheck` (or `tsc --noEmit`) | 0 errors |
-| Tests | `npm test` | all passing |
-| Secrets scan | `gitleaks` (built into the hook) | no `.env`, `*.pem`, API keys, tokens |
-| A11y (web) | grep + axe hint rules | all `<img>` have `alt`, all `<button>` have accessible name |
-| Bundle size | size-limit or rollup-plugin-visualizer | route bundle ≤ 200KB gzipped |
-| Forbidden imports | grep | no `eval`, no `dangerouslySetInnerHTML` without escape, no `child_process.exec` with user input |
+| Gate | Why it matters |
+|---|---|
+| Lint | consistent style; catch dead code early |
+| Types | catch signature drift before it ships |
+| Tests | prove behavior, not just that the suite ran |
+| Secrets scan (grep in hook, `npx soloknuckle check` for staged diff) | no `.env`, `*.pem`, API keys, tokens |
+| Forbidden imports (grep) | no `eval`, no `dangerouslySetInnerHTML` without escape, no `child_process.exec` with user input |
 
 If a project doesn't have `npm run lint` / `npm run typecheck` set up, the AI must add them as part of the first change.
 
@@ -94,7 +92,7 @@ Every change must respect these. If you can't, ask first.
 - Form fields have associated `<label>` and error messages tied via `aria-describedby`.
 - Color is never the only signal (icon + text + color, not just color).
 - Touch targets ≥ 44×44px.
-- Lighthouse a11y score ≥ 95. Run `npx unlighthouse` or `npx @axe-core/cli` before merging.
+- Run the project's a11y checks in CI (`npx @axe-core/cli` or Lighthouse) before merging.
 
 ## 8. Performance Baseline
 
