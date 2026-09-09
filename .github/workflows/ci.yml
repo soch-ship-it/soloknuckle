@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    tags: ['v*']
   pull_request:
     branches: [main, develop]
 
@@ -45,7 +46,7 @@ jobs:
 
   publish:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,3 +72,45 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  release-binaries:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build release binaries
+        run: npm run build:bin
+
+      - name: Publish GitHub release with binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          name: soloknuckle ${{ github.ref_name }}
+          body: |
+            ## Soloknuckle ${{ github.ref_name }}
+
+            Production hygiene CLI — pre-flight checks, secret scanning, agent firewall, MCP, and a rollback daemon.
+
+            Install:
+            \`curl -fsSL https://raw.githubusercontent.com/z99wE/soloknuckle/main/install.sh | bash\`
+
+            Or via npm: \`npm install -g soloknuckle\`
+
+            Verify the package on npm: https://www.npmjs.com/package/soloknuckle
+          files: dist-bin/soloknuckle-*.tar.gz

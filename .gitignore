@@ -10,3 +10,4 @@ flags.json
 PR_DESCRIPTION.md
 *.log
 coverage/
+dist-bin/
