@@ -12,8 +12,8 @@ It is built for **AI-assisted development**: code written or reviewed by Cursor,
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-475%20passing-brightgreen" alt="475 tests passing">
-  <img src="https://img.shields.io/badge/coverage-88%25%20lines-success" alt="coverage">
+  <img src="https://img.shields.io/badge/tests-493%20passing-brightgreen" alt="493 tests passing">
+  <img src="https://img.shields.io/badge/coverage-87%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
 </p>
@@ -97,9 +97,11 @@ Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback 
 | `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
 | `npx soloknuckle score` | Project health 0–100 across 7 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 7-domain scorecard |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
-| `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
+| `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards (11 checks, incl. committed-`.env` detection) | Compliance report |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
-| `npx soloknuckle ai-watch` | Track AI-authored commits and quarantine them (runs in pre-commit) | Quarantine/approval branch |
+| `npx soloknuckle ai-watch [count]` | Track AI-authored commits, quarantine risky ones, and create approval branches (`--all` watches last 10; `--mark <sha>:<ai\|human>` applies a manual override) | Quarantine/approval branch |
+| `npx soloknuckle intercept <command...>` | Evaluate a shell command against the firewall; exits 1 when destructive (`--json` for machine output). Powers the optional shell guard and raw-terminal protection | Allowed / blocked + reason |
+| `npx soloknuckle guard-install` | Install the optional shell guard into `~/.zshrc` or `~/.bashrc` so raw terminals are firewall-protected too (`--shell bash\|zsh`, `--remove` to uninstall) | Shell config updated |
 | `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories (text; `-f json` for a manifest) | Persona files or JSON |
 | `npx soloknuckle capabilities` | Command registry for AI agents (`-f text`, default, or `-f json`) | Text list or JSON |
 | `npx soloknuckle watch` | Rollback daemon + webhook listener | Daemon process |
@@ -111,7 +113,7 @@ Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback 
 | `npx soloknuckle audit` | LLM reviews your uncommitted code | Free (Ollama) or API |
 | `npx soloknuckle pr` | Auto-generates PR description from git diff | Free (Ollama) or API |
 
-On the first LLM-command run, Soloknuckle asks for a provider and key (or local Ollama) and stores it in `~/.soloknuckle/config.json` — local only, never uploaded.
+On the first LLM-command run, Soloknuckle asks for a provider and key (or local Ollama). On macOS the key is stored in the **system Keychain** (`~/.soloknuckle/config.json` holds only a reference); elsewhere it falls back to a `0600`-permissioned config file. Either way it is local only, never uploaded.
 
 ---
 
@@ -276,9 +278,13 @@ npx soloknuckle audit      # choose OpenAI / Anthropic / Gemini / ... on first r
 | Secret leakage | Scans for API keys, tokens, credentials in code and diffs |
 | Destructive commands | Firewall blocks `rm -rf`, `git push --force`, SQL drops |
 | Path traversal | Persona system validates directory boundaries |
-| API key exposure | Keys stored locally, never committed to git |
+| API key exposure | Keys stored locally (macOS Keychain preferred), never committed to git |
 | Bad merges | Rollback daemon auto-reverts AI-authored bugs |
 | Unpinned deps | Dependency scanning surfaces transitive audit warnings |
+
+### Webhook daemon security
+
+Every webhook endpoint (`/webhooks/rollback`, `/webhooks/sentry`, and the read-only `/webhooks/incidents`) requires either `X-Webhook-Secret` with the configured secret, or a recognized HMAC signature (Sentry `X-Sentry-Webhook-Hmac-SHA256`, GitHub `X-Hub-Signature-256`). The daemon binds to loopback (`127.0.0.1`) by default and even without a configured secret generates a one-time ephemeral secret rather than accepting unauthenticated requests. If you override `WEBHOOK_HOST` to a non-loopback address, the daemon prints a loud warning because it is then reachable from other machines.
 
 ### Command firewall patterns
 
@@ -291,6 +297,19 @@ The interceptor blocks these destructive patterns:
 - `curl ... | sh`, `wget ... | bash` — also `zsh`, `ksh`, `csh`, `tcsh`, `fish`, `dash`
 - `dd if=... of=/dev/...`, `mkfs.*`, `mv ... /dev/null`
 - Shell redirects — `>` / `>>` to absolute or relative paths, heredocs (`<<`), pipes to `tee`, and `sudo <cmd> >`
+
+### Where the firewall actually applies
+
+Be honest about scope: the firewall reliably guards **commands routed through Soloknuckle** — the `soloknuckle_intercept` MCP tool, git hooks that shell out to `check`, and the `npx soloknuckle intercept <command...>` CLI (which exits 1 on a blocked command, `--json` for agents).
+
+Commands typed directly into a **raw terminal** (zsh/bash prompt, not routed through Soloknuckle) are *not* intercepted by default. To extend protection there, run:
+
+```bash
+npx soloknuckle guard-install          # wraps rm/git/chmod/dd/mkfs/curl/wget in ~/.zshrc or ~/.bashrc
+npx soloknuckle guard-install --remove # roll back anytime
+```
+
+The wrapper route every invocation of those commands through `soloknuckle intercept` and refuses anything the firewall blocks. Note it adds a small per-command latency and is entirely optional — think of it as a seatbelt you fasten yourself, not an airbag deployed by Soloknuckle. All of it is opt-in and never ships to end users of your app.
 
 ### Package integrity
 
@@ -403,8 +422,9 @@ soloknuckle/
 ├── cli/                      # Core CLI modules
 │   ├── index.ts              # Entry point + command router
 │   ├── check.ts              # Pre-flight orchestration + gates
-│   ├── scanner.ts            # Secret detection engine
+│   ├── scanner.ts            # Secret detection engine (scanTextForSecrets + diffs)
 │   ├── interceptor.ts        # Command firewall
+│   ├── shell-guard.ts        # Optional shell wrapper generator (guard-install)
 │   ├── scorer/               # Project health scoring (13 dimensions, 7 domains)
 │   ├── gates.ts              # Hard gate evaluation + scorecard
 │   ├── mutation.ts           # Mutation testing gate
@@ -413,8 +433,9 @@ soloknuckle/
 │   ├── flaky-detector.ts     # Flaky test detector
 │   ├── supply-chain-sentinel.ts  # Dependency typosquat scanner
 │   ├── sbom.ts               # CycloneDX SBOM generation
-│   ├── compliance.ts         # Self-compliance audit
+│   ├── compliance.ts         # Self-compliance audit (11 checks)
 │   ├── llm-client.ts         # Multi-provider LLM client
+│   ├── keychain.ts           # macOS Keychain storage for API keys (0600 fallback)
 │   ├── telemetry.ts          # AI vs human tracking
 │   ├── rollback.ts           # Auto-rollback daemon + webhooks
 │   ├── mcp-server.ts         # MCP server for AI agents
@@ -422,7 +443,7 @@ soloknuckle/
 │   ├── personas.ts           # Per-directory bounded-context rules
 │   ├── pr-enforcer.ts        # Strict PR description generator
 │   └── budget.ts             # Agent budget tracking
-├── test/                     # 28 test suites, 475 tests
+├── test/                     # 29 test suites, 493 tests
 ├── git-hooks/                # pre-commit, commit-msg hook scripts
 ├── templates/                # Feature flag templates + example flags.json
 ├── scripts/                  # Setup + asset generation scripts
@@ -437,11 +458,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 475 tests
+npm test                      # run all 493 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 475 tests across 28 suites — 88.3% lines, 90.1% functions, 76.7% branches covered.
+**Current status:** 493 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
 

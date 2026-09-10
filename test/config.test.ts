@@ -13,6 +13,14 @@ vi.mock('inquirer', () => ({
   },
 }));
 
+vi.mock('../cli/keychain', () => ({
+  loadSecret: vi.fn(() => null),
+  saveSecret: vi.fn(() => false),
+  deleteSecret: vi.fn(() => false),
+  KEYCHAIN_SERVICE: 'soloknuckle',
+  KEYCHAIN_ACCOUNT: 'llm',
+}));
+
 import inquirer from 'inquirer';
 const mockPrompt = vi.mocked(inquirer.prompt);
 

@@ -10,6 +10,7 @@ export interface AICommitRecord {
   message: string;
   timestamp: string;
   isAi: boolean;
+  classification?: CommitClassification;
   diffStats: { files: number; additions: number; deletions: number };
   scanResult: {
     passed: boolean;
@@ -20,6 +21,13 @@ export interface AICommitRecord {
     branch?: string;
     reason?: string;
   };
+}
+
+export interface CommitClassification {
+  isAi: boolean;
+  score: number;
+  confidence: 'high' | 'low';
+  reasons: string[];
 }
 
 export interface AIWatcherData {
@@ -87,7 +95,108 @@ export function isAICommit(message: string): boolean {
   return AI_SIGNATURES.some(pattern => pattern.test(message));
 }
 
+// ─── Confidence-based classification ────────────────────────────────────────
+
+const BOT_AUTHOR_PATTERN = /(bot|ci|actions|copilot|claude|gpt|dependabot|renovate)[\])]?\s*@/i;
+
+function getConfiguredUserEmail(): string {
+  try {
+    return execSync('git config user.email', { encoding: 'utf-8', cwd: process.cwd() }).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Scores a commit: AI signatures and bot-ish author emails push toward "AI",
+ * an author matching the local git user.email pushes toward "human".
+ * A single firm signature yields a high-confidence verdict; borderline
+ * commits get confidence "low" and should be reviewed by hand.
+ */
+export function classifyCommit(message: string, authorEmail?: string): CommitClassification {
+  const reasons: string[] = [];
+  let score = 0;
+
+  if (isAICommit(message)) {
+    score += 4;
+    reasons.push('AI signature in message');
+  }
+  if (authorEmail && BOT_AUTHOR_PATTERN.test(authorEmail)) {
+    score += 3;
+    reasons.push('Bot-like author email');
+  }
+  const userEmail = getConfiguredUserEmail();
+  if (authorEmail && userEmail && authorEmail.toLowerCase() === userEmail.toLowerCase()) {
+    score -= 3;
+    reasons.push('Author matches git config user.email');
+  }
+
+  return {
+    isAi: score >= 3,
+    score,
+    confidence: Math.abs(score) >= 4 ? 'high' : 'low',
+    reasons,
+  };
+}
+
+// ─── Manual overrides ───────────────────────────────────────────────────────
+
+type OverrideLabel = 'ai' | 'human';
+type AiOverrides = Record<string, OverrideLabel>;
+
+function getOverridesFile(): string {
+  return path.join(getDataDir(), 'ai-overrides.json');
+}
+
+export function loadOverrides(): AiOverrides {
+  const file = getOverridesFile();
+  if (fs.existsSync(file)) {
+    try {
+      return JSON.parse(fs.readFileSync(file, 'utf-8'));
+    } catch {
+      // corrupted — reset
+    }
+  }
+  return {};
+}
+
+function saveOverrides(overrides: AiOverrides): void {
+  fs.writeFileSync(getOverridesFile(), JSON.stringify(overrides, null, 2));
+}
+
+/**
+ * Applies a manual ai/human label to a commit. Overrides the heuristic for
+ * future watches and re-classifies any existing record, then recomputes
+ * aggregate rates.
+ */
+export function markCommit(sha: string, label: OverrideLabel): { success: boolean; message: string } {
+  const overrides = loadOverrides();
+  overrides[sha] = label;
+  saveOverrides(overrides);
+
+  const data = loadWatcherData();
+  const record = data.records.find(r => r.sha === sha);
+  if (record) {
+    record.isAi = label === 'ai';
+    recomputeRates(data);
+    saveWatcherData(data);
+    return { success: true, message: `Marked ${sha.slice(0, 8)} as ${label} and updated tracked stats.` };
+  }
+  return { success: true, message: `Marked ${sha.slice(0, 8)} as ${label}. It will apply when this commit is watched.` };
+}
+
 // ─── Core Logic ─────────────────────────────────────────────────────────────
+
+export function recomputeRates(data: AIWatcherData): void {
+  data.totalCommits = data.records.length;
+  data.aiCommits = data.records.filter(r => r.isAi).length;
+  data.humanCommits = data.totalCommits - data.aiCommits;
+  const aiRecords = data.records.filter(r => r.isAi);
+  const accepted = aiRecords.filter(r => r.branchAction.action === 'passed').length;
+  const quarantined = aiRecords.filter(r => r.branchAction.action === 'quarantined').length;
+  data.acceptanceRate = aiRecords.length > 0 ? Math.round((accepted / aiRecords.length) * 100) : 0;
+  data.quarantineRate = aiRecords.length > 0 ? Math.round((quarantined / aiRecords.length) * 100) : 0;
+}
 
 export interface WatchResult {
   record: AICommitRecord;
@@ -123,12 +232,36 @@ export function watchCommit(sha?: string): WatchResult {
     }
   }
 
+  // Fetch author email for classification
+  let commitAuthorEmail = '';
+  try {
+    commitAuthorEmail = execSync(`git log -1 --format=%ae ${commitSha}`, { encoding: 'utf-8', cwd: process.cwd() }).trim();
+  } catch {
+    // optional signal — fall through with empty author
+  }
+
   // Check if already watched
   if (data.records.some(r => r.sha === commitSha)) {
     return { record: data.records.find(r => r.sha === commitSha)!, success: true, message: 'Commit already watched.' };
   }
 
-  const isAi = isAICommit(commitMessage);
+  // Manual overrides win; otherwise apply the scored heuristic
+  const overrides = loadOverrides();
+  let classification: CommitClassification;
+  let isAi: boolean;
+  if (overrides[commitSha]) {
+    const forced = overrides[commitSha] === 'ai';
+    classification = {
+      isAi: forced,
+      score: forced ? 4 : -4,
+      confidence: 'high',
+      reasons: ['Manual override in .soloknuckle/ai-overrides.json'],
+    };
+    isAi = forced;
+  } else {
+    classification = classifyCommit(commitMessage, commitAuthorEmail);
+    isAi = classification.isAi;
+  }
 
   // Get diff for this commit
   let diff = '';
@@ -180,6 +313,7 @@ export function watchCommit(sha?: string): WatchResult {
     message: commitMessage,
     timestamp: new Date().toISOString(),
     isAi,
+    classification,
     diffStats,
     scanResult: { passed, violations },
     branchAction,
@@ -194,12 +328,7 @@ export function watchCommit(sha?: string): WatchResult {
     data.humanCommits++;
   }
 
-  // Recalculate rates
-  const aiRecords = data.records.filter(r => r.isAi);
-  const accepted = aiRecords.filter(r => r.branchAction.action === 'passed').length;
-  const quarantined = aiRecords.filter(r => r.branchAction.action === 'quarantined').length;
-  data.acceptanceRate = aiRecords.length > 0 ? Math.round((accepted / aiRecords.length) * 100) : 0;
-  data.quarantineRate = aiRecords.length > 0 ? Math.round((quarantined / aiRecords.length) * 100) : 0;
+  recomputeRates(data);
 
   saveWatcherData(data);
 

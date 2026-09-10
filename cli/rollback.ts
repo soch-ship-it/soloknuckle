@@ -395,7 +395,13 @@ export function createRollbackServer(): express.Express {
   });
 
   // ─── New: Incident History ─────────────────────────────────────────────
-  app.get('/webhooks/incidents', (_req, res) => {
+  // Read-only, but still authenticated so the daemon never leaks incident
+  // details to unauthenticated clients on the network.
+  app.get('/webhooks/incidents', (req, res) => {
+    if (!verifyWebhookSecret(req)) {
+      console.log(chalk.red('[SECURITY] Incident history rejected: invalid or missing secret'));
+      return res.status(401).json({ error: 'Unauthorized: missing or invalid webhook secret' });
+    }
     res.json(loadIncidents());
   });
 
@@ -404,8 +410,14 @@ export function createRollbackServer(): express.Express {
 
 export function initWebhookListener() {
   const PORT = Number(process.env.WEBHOOK_PORT || 3002);
+  const host = WEBHOOK_HOST;
+  if (host !== '127.0.0.1' && host !== 'localhost' && !host.startsWith('127.')) {
+    console.log(chalk.red('⚠️  WEBHOOK_HOST is set to a non-loopback address.'));
+    console.log(chalk.red(`   The daemon will be reachable by other machines at http://${host}:${PORT}.`));
+    console.log(chalk.red('   Ensure X-Webhook-Secret is set and the network is trusted, or the daemon may accept requests from untrusted clients.'));
+  }
   const app = createRollbackServer();
-  console.log(chalk.yellow(`Starting Rollback Daemon on ${WEBHOOK_HOST}:${PORT}...`));
+  console.log(chalk.yellow(`Starting Rollback Daemon on ${host}:${PORT}...`));
 
   app.listen(PORT, WEBHOOK_HOST, () => {
     console.log(chalk.green(`Listening for webhooks at http://${WEBHOOK_HOST}:${PORT}/webhooks/rollback`));

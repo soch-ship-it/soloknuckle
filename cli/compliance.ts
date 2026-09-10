@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { ScoreMetrics, calculateMetrics, calculateSevenDomainScorecard, evaluateHardGates } from './scorer';
+import { scanTextForSecrets } from './scanner';
 
 interface ComplianceCheck {
   name: string;
@@ -36,16 +37,11 @@ function fileExists(p: string): boolean {
 function runChecks(metrics: ScoreMetrics): ComplianceCheck[] {
   const checks: ComplianceCheck[] = [];
 
-  // 1. No hardcoded secrets
-  const secretPatterns = [
-    /api[_-]?key\s*[:=]\s*['"][^'"]+['"]/i,
-    /secret\s*[:=]\s*['"][^'"]+['"]/i,
-    /password\s*[:=]\s*['"][^'"]+['"]/i,
-    /token\s*[:=]\s*['"][^'"]+['"]/i,
-  ];
+  const srcDirs = ['src', 'cli', 'lib', 'api', 'scripts'];
 
+  // 1. No hardcoded secrets (uses the shared scanner, not a reduced grep)
+  const secretScanExtensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.yml', '.yaml', '.json'];
   let hasSecrets = false;
-  const srcDirs = ['src', 'cli', 'lib', 'api'];
   for (const dir of srcDirs) {
     const fullDir = path.join(process.cwd(), dir);
     if (!fs.existsSync(fullDir)) continue;
@@ -56,18 +52,17 @@ function runChecks(metrics: ScoreMetrics): ComplianceCheck[] {
         const fp = path.join(d, entry);
         if (fs.statSync(fp).isDirectory() && entry !== 'node_modules' && entry !== '.git') {
           scanDir(fp);
-        } else if (fp.endsWith('.ts') || fp.endsWith('.js')) {
+        } else if (secretScanExtensions.some(ext => fp.endsWith(ext))) {
           const content = fs.readFileSync(fp, 'utf-8');
-          for (const pattern of secretPatterns) {
-            if (pattern.test(content)) {
-              hasSecrets = true;
-              break;
-            }
-          }
+          if (scanTextForSecrets(content).length > 0) hasSecrets = true;
         }
       }
     };
     scanDir(fullDir);
+  }
+  const envFiles = ['.env', '.env.example', '.env.local', '.env.production', '.env.staging', '.env.test'].filter(fileExists);
+  for (const envFile of envFiles) {
+    if (scanTextForSecrets(fs.readFileSync(path.join(process.cwd(), envFile), 'utf-8')).length > 0) hasSecrets = true;
   }
 
   checks.push({
@@ -219,6 +214,22 @@ function runChecks(metrics: ScoreMetrics): ComplianceCheck[] {
     severity: 'warning',
     message: hasHttp ? 'HTTP URLs found in source (non-localhost)' : 'All URLs use HTTPS',
     fix: 'Replace http:// with https:// for non-local URLs',
+  });
+
+  // 11. No .env committed to git
+  let committedEnv = false;
+  try {
+    const tracked = execSync("git ls-files --cached --others --exclude-standard -- '.env*'", { cwd: process.cwd() }).toString().trim();
+    committedEnv = tracked.split('\n').some(line => line.trim().length > 0);
+  } catch {
+    committedEnv = false;
+  }
+  checks.push({
+    name: 'No .env committed to git',
+    passed: !committedEnv,
+    severity: 'critical',
+    message: committedEnv ? '.env file(s) are tracked by git' : 'No .env files tracked by git',
+    fix: 'Remove .env from git tracking: git rm --cached <file> and add to .gitignore',
   });
 
   return checks;

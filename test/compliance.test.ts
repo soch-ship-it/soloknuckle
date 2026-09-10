@@ -52,9 +52,17 @@ describe('runCompliance', () => {
     expect(typeof report.passed).toBe('boolean');
   });
 
-  it('runs all 10 compliance checks', () => {
+  it('runs all 11 compliance checks', () => {
     const report = runCompliance();
-    expect(report.checks).toHaveLength(10);
+    expect(report.checks).toHaveLength(11);
+  });
+
+  it('checks that no .env is committed to git', () => {
+    const report = runCompliance();
+    const envCommittedCheck = report.checks.find(c => c.name === 'No .env committed to git');
+    expect(envCommittedCheck).toBeDefined();
+    expect(envCommittedCheck?.passed).toBe(true);
+    expect(envCommittedCheck?.severity).toBe('critical');
   });
 
   it('checks for hardcoded secrets', () => {

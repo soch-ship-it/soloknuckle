@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scanDiffForSecretsAndPII } from '../cli/scanner';
+import { scanDiffForSecretsAndPII, scanTextForSecrets } from '../cli/scanner';
 
 describe('scanDiffForSecretsAndPII', () => {
   it('should ignore code without secrets', () => {
@@ -213,5 +213,46 @@ const diff = '+ const api_key = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";';
     const violations = scanDiffForSecretsAndPII(diff);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('secret/API key');
+  });
+});
+
+describe('scanTextForSecrets', () => {
+  it('flags plaintext across the whole text, not just diff additions', () => {
+    expect(scanTextForSecrets('`+ skip me`')).toHaveLength(0);
+    const violations = scanTextForSecrets(
+      'const dbPassword = "' + 'hunter2hunter2hunter2' + '";'
+    );
+    expect(violations).toHaveLength(1);
+  });
+
+  it('flags hardcoded token/password assignments', () => {
+    const violations = scanTextForSecrets(
+      'const apiToken = "' + 'abc12345tokenvalue' + '";'
+    );
+    expect(violations).toHaveLength(1);
+  });
+
+  it('flags underscores-heavy API keys inside quotes', () => {
+    const violations = scanTextForSecrets('const apiKey = "' + 'TEST_API' + '_KEY_abc123def456ghi789";');
+    expect(violations.some(v => v.includes('secret/API key'))).toBe(true);
+  });
+
+  it('reports line numbers of violations', () => {
+    const violations = scanTextForSecrets(
+      'console.log("ok");\n' +
+      'const dbPassword = "' + 's3cr3tpassw0rd12345' + '";\n' +
+      'export default dbPassword;'
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('Line 2');
+  });
+
+  it('scans cleanly for prose and example placeholders', () => {
+    const violations = scanTextForSecrets(
+      'password = "your_password_here"\n' +
+      'email = "test@example.com"\n' +
+      'const apiKey = "your-api-key-placeholder";'
+    );
+    expect(violations).toHaveLength(0);
   });
 });
