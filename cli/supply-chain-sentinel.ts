@@ -293,6 +293,7 @@ export class SupplyChainSentinel {
 
     const deps = {
       ...((this.packageJson as Record<string, unknown>).dependencies as Record<string, unknown> || {}),
+      ...((this.packageJson as Record<string, unknown>).devDependencies as Record<string, unknown> || {}),
     };
 
     for (const [name] of Object.entries(deps)) {
@@ -302,10 +303,17 @@ export class SupplyChainSentinel {
       try {
         const stat = fs.statSync(pkgPath);
         const ageInDays = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60 * 24);
-        
+
         if (ageInDays > 365) {
-          // Package hasn't been updated in over a year
-          // This is a signal but not necessarily suspicious
+          // Installed copy sat untouched for over a year — a dormant package
+          // that would be a high-value target for a "sudden update" attack.
+          this.findings.push({
+            severity: 'low',
+            category: 'stale-package',
+            package: name,
+            message: `Package has not been updated in ${Math.floor(ageInDays)} days`,
+            details: 'Stale ("dormant") dependencies are prime targets for supply chain takeovers. Verify the installed version matches the lockfile and consider updating.',
+          });
         }
       } catch {
         // skip

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { applyPersona, PersonaType } from '../cli/personas';
+import { applyPersona, applyPersonaManifest, PersonaType } from '../cli/personas';
 
 describe('applyPersona', () => {
   let tmpDir: string;
@@ -68,5 +68,15 @@ describe('applyPersona', () => {
     const content = fs.readFileSync(path.join(target, '.cursorrules'), 'utf-8');
     expect(content).toContain('Data Engineer');
     expect(content).not.toContain('old content');
+  });
+
+  it('should return a JSON-serializable manifest with rules', () => {
+    const manifest = applyPersonaManifest('json-app', 'backend-security');
+    expect(manifest.personaType).toBe('backend-security');
+    expect(manifest.file).toBe(fs.realpathSync(path.join(tmpDir, 'json-app', '.cursorrules')));
+    expect(fs.existsSync(manifest.file)).toBe(true);
+    expect(manifest.rules).toContain('RBAC');
+    expect(manifest.folder).toBe(path.dirname(manifest.file));
+    expect(JSON.parse(JSON.stringify(manifest)).personaType).toBe('backend-security');
   });
 });

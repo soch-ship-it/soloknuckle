@@ -330,6 +330,50 @@ async function attemptFixes(issues: Issue[]): Promise<void> {
       console.log(chalk.yellow('     \u{26A0}\u{FE0F} Skipping auto-fix: run `npm audit fix` manually after reviewing the changes.'));
     }
 
+    if (issue.category === 'Supply Chain') {
+      try {
+        const pkgPath = path.join(process.cwd(), 'package.json');
+        if (fs.existsSync(pkgPath) && !fs.existsSync(path.join(process.cwd(), 'package-lock.json'))) {
+          console.log(chalk.dim('     Running npm install to generate a lockfile...'));
+          execSync('npm install --package-lock-only', { stdio: 'ignore', cwd: process.cwd() });
+          console.log(chalk.green('     \u{2713} Generated package-lock.json'));
+          fixedCount++;
+        }
+      } catch {
+        console.log(chalk.yellow('     \u{26A0}\u{FE0F} Could not generate a lockfile'));
+      }
+    }
+
+    if (issue.category === 'Testing') {
+      try {
+        const pkgPath = path.join(process.cwd(), 'package.json');
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+          if (!pkg.scripts || !pkg.scripts.test) {
+            pkg.scripts = { ...(pkg.scripts || {}) };
+            pkg.scripts.test = pkg.scripts.test || 'node --test';
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+            console.log(chalk.green('     \u{2713} Added a test script to package.json'));
+            fixedCount++;
+          }
+        }
+      } catch {
+        console.log(chalk.yellow('     \u{26A0}\u{FE0F} Could not add a test script'));
+      }
+    }
+
+    if (issue.category === 'Reliability') {
+      const sentryOrHealthPath = path.join(process.cwd(), 'healthcheck.js');
+      if (!fs.existsSync(sentryOrHealthPath)) {
+        fs.writeFileSync(
+          sentryOrHealthPath,
+          `// Basic health check scaffolded by Soloknuckle --fix.\n// Replace with a real health endpoint for your service.\nconst http = require('http');\nhttp.createServer((req, res) => {\n  res.writeHead(200, { 'Content-Type': 'application/json' });\n  res.end(JSON.stringify({ status: 'ok' }));\n}).listen(process.env.PORT || 3000);\n`
+        );
+        console.log(chalk.green('     \u{2713} Created healthcheck.js'));
+        fixedCount++;
+      }
+    }
+
     if (issue.category === 'Documentation') {
       const readmePath = path.join(process.cwd(), 'README.md');
       if (!fs.existsSync(readmePath)) {

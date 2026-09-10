@@ -98,4 +98,64 @@ const diff = '+ const api_key = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";';
     const violations = scanDiffForSecretsAndPII(diff);
     expect(violations).toHaveLength(0);
   });
+
+  it('should detect Discord bot tokens', () => {
+    const diff = '+ const token = "' + 'MTIzNDU2Nzg5MDEyMzQ1Njc4OTA5MDEyMzQ1Njc4OTAxMjM0NTY3OAQ' + '.TG9yZW' + '.YXhhbXBsZXRva2Vub25seWZvcnRlc3Rpbmc";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect npm access tokens', () => {
+    const diff = '+ const token = "' + 'npm_' + 'ARizGXo5MduBSj0HYp6NevCTk1IZq7OfwDUl";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect npm _authToken leaks', () => {
+    const diff = '+ //registry.npmjs.org/:_authToken=' + 'NPM_TOKEN_VALUE_1234567890abc';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect GitHub fine-grained PATs', () => {
+    const diff = '+ const token = "' + 'github_pat_' + '11ABCDEFGHIJKLMNOPQRSTUVWXYZ";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect AWS temporary access keys', () => {
+    const diff = '+ const key = "' + 'ASIA' + 'IOSFODNN7EXAMPLE";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect PGP private key blocks', () => {
+    const diff = '+ const key = "' + '-----BEGIN PGP PRIVATE KEY' + ' BLOCK-----";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect SendGrid API keys', () => {
+    const diff = '+ const key = "' + 'SG.1a2b3c4d5e6f7g8h9i0j1k2l' + '.3m4n5o6p7q8r9s0t1u2v3w4x5y6z7a8b9c0d1e2f3g4";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect Telegram bot tokens', () => {
+    const diff = '+ const key = "' + '1234567890' + ':' + 'ABCdefGHIjklMNOpqrsTUVwxyzABcdefGhiJkLm";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect Slack webhook URLs', () => {
+    const diff = '+ const url = "' + 'https://hooks.slack.com/services/' + 'T00000000' + '/B00000000' + '/XXXXXXXXXXXXXXXXXXXXXXXX";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
+
+  it('should detect YAML-style API key assignments', () => {
+    const diff = '+ API_KEY:' + ' 1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+  });
 });
