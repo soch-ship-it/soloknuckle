@@ -158,4 +158,60 @@ const diff = '+ const api_key = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";';
     const violations = scanDiffForSecretsAndPII(diff);
     expect(violations).toHaveLength(1);
   });
+
+  it('should detect OpenAI project keys (sk-proj-)', () => {
+    const diff = '+ const key = "' + 'sk-proj-' + 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Anthropic API keys', () => {
+    const diff = '+ const key = "' + 'sk-ant-api03-' + 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect GitLab personal access tokens', () => {
+    const diff = '+ const token = "' + 'glpat-' + 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Hugging Face access tokens', () => {
+    const diff = '+ const token = "' + 'hf_' + 'a1b2c3d4e5f6g7h8i9j0k";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Pulumi access tokens', () => {
+    const diff = '+ const token = "' + 'pul-' + 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Shopify access tokens', () => {
+    const diff = '+ const token = "' + 'shpat_' + 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Twilio API keys', () => {
+    const diff = '+ const token = "' + 'SK' + 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+  it('should detect Azure Storage account keys', () => {
+    const diff = '+ const cs = "DefaultEndpointsProtocol=https;AccountName=myapp;' + 'AccountKey=' + 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4g5h6i7j8k9l0m1n2o3";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
 });
