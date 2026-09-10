@@ -206,15 +206,21 @@ execSyncMock.mockImplementation((cmd: string) => {
   });
 
   describe('/webhooks/incidents', () => {
+    it('rejects unauthenticated requests', async () => {
+      const res = await request(app).get('/webhooks/incidents');
+      expect(res.status).toBe(401);
+    });
+
     it('returns saved incidents and handles corrupt file as empty', async () => {
-      const empty = await request(app).get('/webhooks/incidents');
+      const empty = await request(app).get('/webhooks/incidents').set('x-webhook-secret', 'test-secret');
       expect(empty.status).toBe(200);
       expect(empty.body).toEqual([]);
 
       const dir = path.join(TEST_DIR, '.soloknuckle');
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, 'incidents.json'), '{ nope');
-      const corrupt = await request(app).get('/webhooks/incidents');
+      const corrupt = await request(app).get('/webhooks/incidents').set('x-webhook-secret', 'test-secret');
+      expect(corrupt.status).toBe(200);
       expect(corrupt.body).toEqual([]);
     });
   });
