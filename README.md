@@ -12,7 +12,7 @@ It is built for **AI-assisted development**: code written or reviewed by Cursor,
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-441%20passing-brightgreen" alt="441 tests passing">
+  <img src="https://img.shields.io/badge/tests-467%20passing-brightgreen" alt="467 tests passing">
   <img src="https://img.shields.io/badge/coverage-89%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
@@ -223,7 +223,7 @@ Agent:  "Found a secret. Fixing it before proceeding."
 
 ## IDE Integration
 
-`npx soloknuckle init` detects your IDE and creates the right files:
+`npx soloknuckle init` detects which agent/editor is actually present in your project and only scaffolds files for the ones you use. Run with `--all-ides` to force the full set. If no IDE is detected, the defaults are scaffolded so a fresh project is immediately agent-ready.
 
 | IDE | File Created | Setup Required |
 |-----|--------------|----------------|
@@ -233,6 +233,8 @@ Agent:  "Found a secret. Fixing it before proceeding."
 | **Codex / Lovable / Claude Desktop** | `mcp-config.json` | Import MCP config in settings |
 | **Replit** | `.replit` | None — default run command set |
 | **Any other IDE** | Paste prompt in chat | See below |
+
+If the project isn't a git repository, `init` prints a warning and skips hook installation until `git init` has been run.
 
 **Universal prompt for any IDE:**
 
@@ -280,14 +282,13 @@ npx soloknuckle audit      # choose OpenAI / Anthropic / Gemini / ... on first r
 
 The interceptor blocks these destructive patterns:
 
-- `sudo rm`, `rm -rf`, `rm -fr`, `rm -r -f`, `rm -f -r`
-- `DROP DATABASE`, `DELETE FROM ... WHERE`, `TRUNCATE TABLE`
-- `git push --force`, `git push -f`, `git reset --hard`
-- `chmod 777`, `chmod -R 777`
-- `curl ... | sh`, `wget ... | bash`
-- `dd if=... of=/dev/...`
-- `mkfs.*`, `mv ... /dev/null`
-- Shell redirects (`>>`, `>`, heredoc)
+- `sudo rm`, `rm -rf`, `rm -fr`, `rm -r -f`, `rm -f -r` — including uppercase variants (`rm -Rf`, `rm -fR`) and long-form `rm --recursive --force`
+- `DROP DATABASE` / `DROP TABLE` / `DROP SCHEMA`, `DELETE FROM` (without a `WHERE` guard), `TRUNCATE TABLE`
+- `git push --force`, `git push -f`, `git push --force-with-lease` (incl. case-insensitive), `git reset --hard`, `git clean -fd`
+- `chmod 777`, `chmod -R 777`, `chmod a+rwx`, `chmod o+w`, `chmod a=rwx`
+- `curl ... | sh`, `wget ... | bash` — also `zsh`, `ksh`, `csh`, `tcsh`, `fish`, `dash`
+- `dd if=... of=/dev/...`, `mkfs.*`, `mv ... /dev/null`
+- Shell redirects — `>` / `>>` to absolute or relative paths, heredocs (`<<`), pipes to `tee`, and `sudo <cmd> >`
 
 ### Package integrity
 
@@ -415,10 +416,13 @@ soloknuckle/
 │   ├── telemetry.ts          # AI vs human tracking
 │   ├── rollback.ts           # Auto-rollback daemon + webhooks
 │   ├── mcp-server.ts         # MCP server for AI agents
-│   └── ...                   # config, personas, pr-enforcer, budget, ai-watcher
-├── test/                     # 28 test suites, 441 tests
-├── git-hooks/                # pre-commit, pre-push, commit-msg hook scripts
-├── templates/                # Feature flag templates
+│   ├── ai-watcher.ts         # AI-commit tracking + quarantine branches
+│   ├── personas.ts           # Per-directory bounded-context rules
+│   ├── pr-enforcer.ts        # Strict PR description generator
+│   └── budget.ts             # Agent budget tracking
+├── test/                     # 28 test suites, 467 tests
+├── git-hooks/                # pre-commit, commit-msg hook scripts
+├── templates/                # Feature flag templates + example flags.json
 ├── scripts/                  # Setup + asset generation scripts
 ├── assets/                   # Logo (SVG + ASCII), generated from source art
 ├── AGENTS.md                 # Agent behavior rules
@@ -431,11 +435,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 441 tests
+npm test                      # run all 467 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 441 tests across 28 suites — 89.3% lines, 90.7% functions, 77.3% branches covered.
+**Current status:** 467 tests across 28 suites — 89.2% lines, 90.4% functions, 77.1% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
 
