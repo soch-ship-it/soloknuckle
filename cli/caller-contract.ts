@@ -28,6 +28,7 @@ export interface ContractValidationResult {
     missingParameters: number;
     extraParameters: number;
     typeMismatches: number;
+    returnTypeMismatches: number;
   };
 }
 
@@ -180,6 +181,48 @@ function analyzeTestFileForContracts(
     }
   });
 
+  // Detect return-type mismatches via assertion literals, e.g.
+  //   expect(double(2)).toBe('4')     // double(): number, test expects string
+  //   expect(ping()).toBeNull()        // ping(): string, test expects null
+  lines.forEach((line, index) => {
+    const expectFnMatch = line.match(/expect\(\s*(\w+)\s*\(/);
+    if (!expectFnMatch) return;
+
+    const sourceFunc = sourceSignatures.find(s => s.name === expectFnMatch[1]);
+    if (!sourceFunc?.returnType) return;
+
+    const literalAssertion = line.match(/\.(?:toBe|toEqual|toStrictEqual)\s*\(\s*([^)]+?)\s*\)/);
+    if (literalAssertion) {
+      const mismatch = checkReturnTypeMismatch(literalAssertion[1], sourceFunc.returnType);
+      if (mismatch) {
+        violations.push({
+          type: 'return-type-mismatch',
+          testFile: testFilePath,
+          sourceFile: sourceFunc.file,
+          function: sourceFunc.name,
+          line: index + 1,
+          severity: 'low',
+          message: `Function ${sourceFunc.name} returns ${sourceFunc.returnType}, but test asserts a ${mismatch} value`,
+          suggestion: `Update the assertion to match the declared return type ${sourceFunc.returnType}`,
+        });
+      }
+    } else if (/\.(?:toBeNull|toBeUndefined)\s*\(/.test(line)) {
+      const nullable = sourceFunc.returnType === 'null' || sourceFunc.returnType === 'undefined';
+      if (!nullable) {
+        violations.push({
+          type: 'return-type-mismatch',
+          testFile: testFilePath,
+          sourceFile: sourceFunc.file,
+          function: sourceFunc.name,
+          line: index + 1,
+          severity: 'low',
+          message: `Function ${sourceFunc.name} returns ${sourceFunc.returnType}, but test asserts it is nullish`,
+          suggestion: `Update the assertion to match the declared return type ${sourceFunc.returnType} or make the return type nullable`,
+        });
+      }
+    }
+  });
+
   return violations;
 }
 
@@ -198,6 +241,24 @@ function checkTypeMismatch(arg: string, expectedType: string): string | null {
   }
 
   if (expectedType === 'boolean' && trimmedArg !== 'true' && trimmedArg !== 'false') {
+    return 'other';
+  }
+
+  return null;
+}
+
+function checkReturnTypeMismatch(assertedValue: string, returnType: string): string | null {
+  const trimmedArg = assertedValue.trim();
+
+  if (returnType === 'number' && /^['"]/.test(trimmedArg)) {
+    return 'string';
+  }
+
+  if (returnType === 'string' && /^\d+$/.test(trimmedArg)) {
+    return 'number';
+  }
+
+  if (returnType === 'boolean' && trimmedArg !== 'true' && trimmedArg !== 'false') {
     return 'other';
   }
 
@@ -267,8 +328,9 @@ export async function validateCallerContracts(
   const missingParameters = allViolations.filter(v => v.type === 'missing-parameter').length;
   const extraParameters = allViolations.filter(v => v.type === 'extra-parameter').length;
   const typeMismatches = allViolations.filter(v => v.type === 'type-mismatch').length;
+  const returnTypeMismatches = allViolations.filter(v => v.type === 'return-type-mismatch').length;
 
-  const totalViolations = signatureMismatches + missingParameters + extraParameters + typeMismatches;
+  const totalViolations = signatureMismatches + missingParameters + extraParameters + typeMismatches + returnTypeMismatches;
   const score = totalFunctions > 0
     ? Math.max(0, 100 - (totalViolations * 10) - (functionsWithViolations * 5))
     : 100;
@@ -283,6 +345,7 @@ export async function validateCallerContracts(
       missingParameters,
       extraParameters,
       typeMismatches,
+      returnTypeMismatches,
     },
   };
 }

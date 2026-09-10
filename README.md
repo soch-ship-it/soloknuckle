@@ -91,16 +91,17 @@ Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback 
 
 | Command | Description | Output |
 |---------|-------------|--------|
-| `npx soloknuckle init` | Scaffolds AGENTS.md, git hooks, IDE rules, MCP config | Files created in project |
+| `npx soloknuckle init` | Scaffolds AGENTS.md, git hooks, IDE rules (only for detected editors; `--all-ides` forces all) | Files created in project |
 | `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
-| `npx soloknuckle check --fix` | Auto-fix issues (lint, deps, git, CI, docs) | Fixes applied |
+| `npx soloknuckle check --fix` | Auto-fix issues (lint, tests, deps, git, CI, docs, supply chain, reliability) | Fixes applied |
 | `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
 | `npx soloknuckle score` | Project health 0–100 across 7 domains | Numeric score + breakdown |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
-| `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories | Persona files |
-| `npx soloknuckle capabilities` | Machine-readable command list for AI agents | JSON output |
+| `npx soloknuckle ai-watch` | Track AI-authored commits and quarantine them (runs in pre-commit) | Quarantine/approval branch |
+| `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories (text; `-f json` for a manifest) | Persona files or JSON |
+| `npx soloknuckle capabilities` | Command registry for AI agents (`-f text`, default, or `-f json`) | Text list or JSON |
 | `npx soloknuckle watch` | Rollback daemon + webhook listener | Daemon process |
 
 ### LLM Commands (require an API key or Ollama)

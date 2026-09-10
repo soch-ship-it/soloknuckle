@@ -631,16 +631,19 @@ describe('loadWeights', () => {
 
   it('returns defaults when no weights file exists', () => {
     const weights = loadWeights();
-    expect(weights.quality).toBe(1);
-    expect(weights.testing).toBe(1);
-    expect(weights.security).toBe(1);
-    expect(weights.efficiency).toBe(1);
-    expect(weights.accessibility).toBe(1);
+    expect(weights.quality).toBe(2);
+    expect(weights.testing).toBe(4);
+    expect(weights.security).toBe(2);
+    expect(weights.efficiency).toBe(2);
+    expect(weights.accessibility).toBe(2);
     expect(weights.dependencies).toBe(1);
-    expect(weights.documentation).toBe(1);
-    expect(weights.gitHygiene).toBe(1);
-    expect(weights.ciPipeline).toBe(1);
-    expect(weights.featureFlags).toBe(1);
+    expect(weights.documentation).toBe(0.5);
+    expect(weights.gitHygiene).toBe(0.5);
+    expect(weights.ciPipeline).toBe(0.5);
+    expect(weights.featureFlags).toBe(0.5);
+    expect(weights.performance).toBe(2);
+    expect(weights.reliability).toBe(2);
+    expect(weights.supplyChain).toBe(1);
   });
 
   it('loads custom weights from file', () => {
@@ -656,7 +659,7 @@ describe('loadWeights', () => {
     expect(weights.security).toBe(3);
     expect(weights.testing).toBe(0.5);
     // Others remain default
-    expect(weights.efficiency).toBe(1);
+    expect(weights.efficiency).toBe(2);
   });
 
   it('merges partial weights with defaults', () => {
@@ -667,7 +670,7 @@ describe('loadWeights', () => {
 
     const weights = loadWeights();
     expect(weights.security).toBe(5);
-    expect(weights.quality).toBe(1);
-    expect(weights.testing).toBe(1);
+    expect(weights.quality).toBe(2);
+    expect(weights.testing).toBe(4);
   });
 });

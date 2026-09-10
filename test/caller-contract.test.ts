@@ -66,6 +66,16 @@ describe('validateCallerContracts', () => {
     expect(result.score).toBe(100);
   });
 
+  it('detects return-type mismatches via assertion literals', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'src', 'rt.ts'), `export function double(n: number): number {\n  return n * 2;\n}\nexport function ping(): string {\n  return 'pong';\n}\n`);
+    fs.writeFileSync(path.join(tmpDir, 'test', 'rt.test.ts'), "it('x', () => {\n  expect(double(2)).toBe('4');\n  expect(ping()).toBeNull();\n  expect(double(2)).toBe(4);\n  expect(ping()).toBe('pong');\n});\n");
+
+    const result = await validateCallerContracts(['test/rt.test.ts'], ['src/rt.ts']);
+    expect(result.summary.returnTypeMismatches).toBe(2);
+    expect(result.violations.some((v) => v.type === 'return-type-mismatch' && v.function === 'double')).toBe(true);
+    expect(result.violations.some((v) => v.type === 'return-type-mismatch' && v.function === 'ping')).toBe(true);
+  });
+
   it('auto-discovers source and test files when none are provided', async () => {
     const result = await validateCallerContracts();
     expect(result.summary.totalFunctions).toBeGreaterThan(0);
@@ -84,7 +94,7 @@ describe('evaluateContractGate', () => {
   const base = {
     score: 0,
     violations: [] as unknown[],
-    summary: { totalFunctions: 0, functionsWithViolations: 0, signatureMismatches: 0, missingParameters: 0, extraParameters: 0, typeMismatches: 0 },
+    summary: { totalFunctions: 0, functionsWithViolations: 0, signatureMismatches: 0, missingParameters: 0, extraParameters: 0, typeMismatches: 0, returnTypeMismatches: 0 },
   };
 
   it('passes when score is above threshold', () => {

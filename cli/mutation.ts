@@ -13,7 +13,7 @@ export interface Mutation {
   line: number;
   original: string;
   mutated: string;
-  type: 'operator' | 'return' | 'boundary' | 'boolean';
+  type: 'operator' | 'return' | 'boundary' | 'boolean' | 'string';
 }
 
 export interface MutationResult {
@@ -83,6 +83,17 @@ const BOOLEAN_MUTATIONS: Record<string, string> = {
   'false': 'true',
 };
 
+// String mutations flip literal strings that drive control flow, messages, or
+// status output. Two high-value mutations for stringly-typed code: empty it
+// out (can silently pass `if (x)` checks) and tamper with its content (tests
+// that assert exact values will notice).
+const STRING_MUTATIONS: Array<{ from: RegExp; to: (m: string) => string }> = [
+  { from: /"([^"\\]*)"/, to: () => '""' },        // double-quoted non-empty → ""
+  { from: /'([^'\\]*)'/, to: () => "''" },        // single-quoted non-empty → ''
+  { from: /"([^"\\]*)"/, to: () => '"zzz"' },     // double-quoted → tampered
+  { from: /'([^'\\]*)'/, to: () => "'zzz'" },     // single-quoted → tampered
+];
+
 // ─── Mutation Generation ──────────────────────────────────────────────────
 
 function generateMutations(filePath: string, content: string): Mutation[] {
@@ -145,6 +156,21 @@ function generateMutations(filePath: string, content: string): Mutation[] {
           original: line,
           mutated: line.replace(bool, mutated),
           type: 'boolean',
+        });
+      }
+    }
+
+    // String mutations
+    for (const { from, to } of STRING_MUTATIONS) {
+      const match = line.match(from);
+      if (match && match[0]) {
+        mutations.push({
+          id: `${filePath}:${lineNum}:str:${mutationCount++}`,
+          file: filePath,
+          line: lineNum,
+          original: line,
+          mutated: line.replace(from, to(match[0])),
+          type: 'string',
         });
       }
     }
