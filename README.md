@@ -12,8 +12,8 @@ It is built for **AI-assisted development**: code written or reviewed by Cursor,
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-467%20passing-brightgreen" alt="467 tests passing">
-  <img src="https://img.shields.io/badge/coverage-89%25%20lines-success" alt="coverage">
+  <img src="https://img.shields.io/badge/tests-475%20passing-brightgreen" alt="475 tests passing">
+  <img src="https://img.shields.io/badge/coverage-88%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
 </p>
@@ -95,7 +95,7 @@ Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback 
 | `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
 | `npx soloknuckle check --fix` | Auto-fix issues (lint, tests, deps, git, CI, docs, supply chain, reliability) | Fixes applied |
 | `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
-| `npx soloknuckle score` | Project health 0–100 across 7 domains | Numeric score + breakdown |
+| `npx soloknuckle score` | Project health 0–100 across 7 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 7-domain scorecard |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards | Compliance report |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
@@ -155,11 +155,13 @@ On the first LLM-command run, Soloknuckle asks for a provider and key (or local 
 
 If any gate fails, the command exits with code 1 — perfect for CI/CD pipelines.
 
+In addition to the four metric gates, `--strict` runs **test-quality analyzers** after the metric gates pass: *Caller Contract*, *Context Validation*, *Flaky Detection*, and *Mutation Score*. Each must also score ≥ 70 to pass. These are heavier (they spawn the project test suite) and only execute when the metric gates are green, so non-strict runs stay fast.
+
 ---
 
 ## Unique Testing Features
 
-These four features attack failure modes that AI-assisted development introduces. They run automatically as part of `check --strict` — no extra setup.
+These four features attack failure modes that AI-assisted development introduces. They run automatically as part of `check --strict` — no extra setup. Mutation testing and flaky re-runs are bounded (≤10 mutations, ≤2 repetitions) to keep CI latency under two minutes even on large codebases.
 
 ### 1. Mutation Testing Gate — the coverage-illusion killer
 
@@ -420,7 +422,7 @@ soloknuckle/
 │   ├── personas.ts           # Per-directory bounded-context rules
 │   ├── pr-enforcer.ts        # Strict PR description generator
 │   └── budget.ts             # Agent budget tracking
-├── test/                     # 28 test suites, 467 tests
+├── test/                     # 28 test suites, 475 tests
 ├── git-hooks/                # pre-commit, commit-msg hook scripts
 ├── templates/                # Feature flag templates + example flags.json
 ├── scripts/                  # Setup + asset generation scripts
@@ -435,11 +437,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 467 tests
+npm test                      # run all 475 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 467 tests across 28 suites — 89.2% lines, 90.4% functions, 77.1% branches covered.
+**Current status:** 475 tests across 28 suites — 88.3% lines, 90.1% functions, 76.7% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
 

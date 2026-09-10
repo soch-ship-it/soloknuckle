@@ -227,7 +227,8 @@ function runTests(): { passed: boolean; output: string } {
 
 export async function runMutationTesting(
   files: string[] = [],
-  maxMutationsPerFile: number = 5
+  maxMutationsPerFile: number = 5,
+  maxTotalMutations: number = 20
 ): Promise<MutationScore> {
   const allMutations: Mutation[] = [];
   const results: MutationResult[] = [];
@@ -251,6 +252,13 @@ export async function runMutationTesting(
       // Limit mutations per file
       const limitedMutations = mutations.slice(0, maxMutationsPerFile);
       allMutations.push(...limitedMutations);
+
+      // Hard cap on total mutations so check --strict stays bounded even on
+      // large codebases (each mutation costs one project test-suite run).
+      if (allMutations.length >= maxTotalMutations) {
+        allMutations.length = maxTotalMutations;
+        break;
+      }
     } catch (err) {
       console.error(`Error generating mutations for ${file}:`, err);
     }

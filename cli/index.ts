@@ -18,6 +18,7 @@ import { logTelemetry, getTelemetry } from './telemetry';
 import { getOrPromptApiKey } from './config';
 import { callLLM } from './llm-client';
 import { calculateMetrics, generateSuggestions } from './scorer';
+import { evaluateGates, printSevenDomainScorecard } from './gates';
 import { runCheck } from './check';
 import { generateSbom, writeSbom } from './sbom';
 import { runCompliance, printComplianceReport } from './compliance';
@@ -383,22 +384,18 @@ program
 program
   .command('score')
   .description('Calculates the health of the project across 7 domains')
-  .action(async () => {
-    console.log(chalk.magenta('🔍 Calculating Vibe Score...'));
+  .option('--suggest', 'Append AI-powered improvement suggestions (requires a configured LLM provider)')
+  .action(async (options) => {
+    console.log(chalk.magenta('🔍 Calculating project health...'));
     const metrics = calculateMetrics();
-    console.log(chalk.white(`Overall Score: ${metrics.overall}/100`));
-    console.log(chalk.blue(`- Quality: ${metrics.quality.score}`));
-    console.log(chalk.blue(`- Testing: ${metrics.testing.score}`));
-    console.log(chalk.blue(`- Security: ${metrics.security.score}`));
-    console.log(chalk.blue(`- Efficiency: ${metrics.efficiency.score}`));
-    console.log(chalk.blue(`- Accessibility: ${metrics.accessibility.score}`));
-    console.log(chalk.blue(`- Performance: ${metrics.performance.score}`));
-    console.log(chalk.blue(`- Reliability: ${metrics.reliability.score}`));
-    console.log(chalk.blue(`- Supply Chain: ${metrics.supplyChain.score}`));
-    
-    console.log(chalk.yellow('\n🤖 Generating AI Suggestions...'));
-    const suggestions = await generateSuggestions(metrics);
-    suggestions.forEach(s => console.log(chalk.green(`💡 ${s}`)));
+    const report = evaluateGates(metrics);
+    printSevenDomainScorecard(report.scorecard);
+
+    if (options.suggest) {
+      console.log(chalk.yellow('\n🤖 Generating AI Suggestions...'));
+      const suggestions = await generateSuggestions(metrics);
+      suggestions.forEach(s => console.log(chalk.green(`💡 ${s}`)));
+    }
   });
 
 program

@@ -2,6 +2,8 @@ const SECRET_PATTERNS = [
   /sk_live_[0-9a-zA-Z]{24}/,                  // Stripe live key
   /sk_[0-9a-zA-Z]{24,}/,                      // Stripe restricted/secret key
   /sk-[a-zA-Z0-9]{32}/,                       // OpenAI/Anthropic-style API key
+  /sk-proj-[0-9A-Za-z_-]{20,}/,               // OpenAI project API key (hyphenated)
+  /sk-ant-api[0-9]{2}-[0-9A-Za-z_-]{40,}/,    // Anthropic API key
   /xoxb-[0-9A-Za-z\-]+/,                      // Slack bot token
   /xoxp-[0-9A-Za-z\-]+/,                      // Slack user token
   /xoxe-[0-9A-Za-z\-]+/,                      // Slack app-level token
@@ -23,6 +25,12 @@ const SECRET_PATTERNS = [
   /-----BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----/, // Private key incl. PGP
   /AIza[0-9A-Za-z\-_]{35}/,                   // GCP API key
   /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/, // JWT
+  /\bglpat-[0-9A-Za-z_-]{20,}/,               // GitLab personal access token
+  /\bhf_[A-Za-z0-9]{16,}/,                    // Hugging Face access token
+  /\bpul-[0-9a-fA-F]{40}/,                    // Pulumi access token
+  /\bshpat_[0-9a-fA-F]{32}/,                  // Shopify access token
+  /\bSK[0-9a-fA-F]{32}\b/,                    // Twilio API key
+  /AccountKey=[A-Za-z0-9+/=]{40,}/i,          // Azure Storage account key
 ];
 
 const PII_PATTERNS = [
