@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
+import { loadSecret, saveSecret, KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT } from './keychain';
 
 const CONFIG_DIR = path.join(os.homedir(), '.soloknuckle');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -32,6 +33,8 @@ export interface LLMProvider {
 export interface SoloknuckleConfig {
   LLM_PROVIDER?: string;
   LLM_API_KEY?: string;
+  /** When 'macos-keychain', the API key lives in macOS Keychain instead of config.json. */
+  apiKeyRef?: string;
   LLM_BASE_URL?: string;
   LLM_MODEL?: string;
   hooksEnabled?: boolean;
@@ -77,6 +80,12 @@ export async function getOrPromptApiKey(): Promise<string> {
     return config.LLM_API_KEY;
   }
 
+  // 2b. Check macOS Keychain if previously stored there
+  if (config.apiKeyRef === 'macos-keychain') {
+    const key = loadSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+    if (key) return key;
+  }
+
   // 3. Prompt user if neither exists
   const answers = await inquirer.prompt([
     {
@@ -103,12 +112,41 @@ export async function getOrPromptApiKey(): Promise<string> {
 
   // Save for future use
   config.LLM_PROVIDER = answers.provider;
-  config.LLM_API_KEY = answers.key || '';
   config.LLM_BASE_URL = answers.baseUrl || '';
+  if (answers.provider !== 'Ollama (Local)' && answers.key) {
+    if (saveSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, answers.key)) {
+      config.apiKeyRef = 'macos-keychain';
+      delete config.LLM_API_KEY;
+    } else {
+      config.LLM_API_KEY = answers.key;
+    }
+  } else {
+    config.LLM_API_KEY = answers.key || '';
+  }
   saveConfig(config);
 
-  console.log(chalk.green('✅ Configuration saved locally to ~/.soloknuckle/config.json'));
-  return config.LLM_API_KEY || '';
+  if (config.apiKeyRef === 'macos-keychain') {
+    console.log(chalk.green('✅ API key stored in macOS Keychain (~/.soloknuckle/config.json holds a reference only)'));
+  } else {
+    console.log(chalk.green('✅ Configuration saved locally to ~/.soloknuckle/config.json'));
+  }
+  return answers.key || '';
+}
+
+/**
+ * Resolves an API key by precedence: environment variable, then the stored
+ * value passed in, then macOS Keychain (only when config opted in via
+ * apiKeyRef), then nothing.
+ */
+export function resolveApiKey(storedKey?: string): string {
+  if (process.env.LLM_API_KEY) return process.env.LLM_API_KEY;
+  if (storedKey) return storedKey;
+  const config = loadConfig();
+  if (config.apiKeyRef === 'macos-keychain') {
+    const key = loadSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+    if (key) return key;
+  }
+  return '';
 }
 
 // ── Provider Registry ───────────────────────────────────────────────────────

@@ -161,6 +161,71 @@ describe('AI Commit Watcher', () => {
     });
   });
 
+  describe('classifyCommit', () => {
+    it('flags AI signature commits as AI with high confidence', async () => {
+      const { classifyCommit } = await import('../cli/ai-watcher');
+      const result = classifyCommit('Co-authored-by: Copilot <copilot@github.com>', 'humandev@example.com');
+      expect(result.isAi).toBe(true);
+      expect(result.confidence).toBe('high');
+      expect(result.score).toBe(4); // +4 signature, git config user.email mock returns '' so no -3
+    });
+
+    it('flags human commits as non-AI', async () => {
+      const { classifyCommit } = await import('../cli/ai-watcher');
+      const result = classifyCommit('fix: resolve null pointer in handler', 'humandev@example.com');
+      expect(result.isAi).toBe(false);
+      expect(result.confidence).toBe('low');
+    });
+
+    it('treats bot-like author emails as AI signal', async () => {
+      const { classifyCommit } = await import('../cli/ai-watcher');
+      const result = classifyCommit('chore: bump deps', 'renovate[bot]@users.noreply.github.com');
+      expect(result.isAi).toBe(true);
+      expect(result.score).toBe(3);
+    });
+  });
+
+  describe('markCommit', () => {
+    it('writes an override file and recomputes rates for tracked records', async () => {
+      const { markCommit, loadWatcherData, saveWatcherData, loadOverrides } = await import('../cli/ai-watcher');
+      const data = loadWatcherData();
+      data.records.push({
+        sha: 'face000000000000000000000000000000000000',
+        message: 'Co-authored-by: Copilot',
+        timestamp: new Date().toISOString(),
+        isAi: true,
+        diffStats: { files: 1, additions: 1, deletions: 0 },
+        scanResult: { passed: true, violations: [] },
+        branchAction: { action: 'passed', branch: 'ai-approved/face0000' },
+      });
+      data.records.push({
+        sha: 'beeef00000000000000000000000000000000000',
+        message: 'fix: human work',
+        timestamp: new Date().toISOString(),
+        isAi: false,
+        diffStats: { files: 1, additions: 1, deletions: 0 },
+        scanResult: { passed: true, violations: [] },
+        branchAction: { action: 'skipped' },
+      });
+      data.totalCommits = 2;
+      data.aiCommits = 1;
+      data.humanCommits = 1;
+      saveWatcherData(data);
+
+      const result = markCommit('face000000000000000000000000000000000000', 'human');
+      expect(result.success).toBe(true);
+
+      const overrides = loadOverrides();
+      expect(overrides['face000000000000000000000000000000000000']).toBe('human');
+
+      const updated = loadWatcherData();
+      expect(updated.records[0].isAi).toBe(false);
+      expect(updated.aiCommits).toBe(0);
+      expect(updated.humanCommits).toBe(2);
+      expect(updated.acceptanceRate).toBe(0);
+    });
+  });
+
   describe('watchCommit', () => {
     it('returns error for invalid sha', async () => {
       execSyncMock.mockImplementation((cmd: string) => {

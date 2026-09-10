@@ -1,4 +1,4 @@
-import { loadConfig, getActiveProvider, PROVIDER_REGISTRY } from './config';
+import { loadConfig, getActiveProvider, PROVIDER_REGISTRY, resolveApiKey } from './config';
 
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
@@ -78,7 +78,7 @@ export async function callLLM(systemPrompt: string, userPrompt: string): Promise
     throw new Error(`Unsupported LLM Provider type: ${providerType}`);
   }
 
-  const apiKey = process.env.LLM_API_KEY || activeProvider.apiKey || '';
+  const apiKey = resolveApiKey(activeProvider.apiKey);
   if (providerInfo.needsApiKey && !apiKey) {
     throw new Error(`${providerInfo.name} requires an API key. Please configure it in the UI.`);
   }

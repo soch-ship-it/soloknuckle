@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 import { scanDiffForSecretsAndPII } from './scanner';
 import { applyPersona, applyPersonaManifest, PersonaType } from './personas';
@@ -24,7 +24,9 @@ import { generateSbom, writeSbom } from './sbom';
 import { runCompliance, printComplianceReport } from './compliance';
 import { getVersion } from './path-utils';
 import { printBanner } from './banner';
-import { watchCommit, watchRecentCommits, getWatcherSummary, loadWatcherData } from './ai-watcher';
+import { watchCommit, watchRecentCommits, getWatcherSummary, loadWatcherData, markCommit } from './ai-watcher';
+import { interceptCommand } from './interceptor';
+import { installShellGuard, detectShell } from './shell-guard';
 
 const program = new Command();
 
@@ -47,6 +49,8 @@ const CAPABILITIES: Array<{ name: string; arguments: string; description: string
   { name: 'ai-watch', arguments: '[count]', description: 'Tracks AI-authored commits, scans their diffs, and creates approval/quarantine branches.', requiresLlm: false },
   { name: 'capabilities', arguments: '[-f json|text]', description: 'Lists every command available to AI agents in machine-readable form.', requiresLlm: false },
   { name: 'watch', arguments: '', description: 'Starts the rollback daemon and webhook listener.', requiresLlm: false },
+  { name: 'intercept', arguments: '<command...>', description: 'Evaluates a shell command against the firewall. Exits 1 when the action is destructive. Used by the optional shell guard and by raw terminals.', requiresLlm: false },
+  { name: 'guard-install', arguments: '[--shell bash|zsh] [--remove]', description: 'Installs an optional shell guard into ~/.zshrc or ~/.bashrc so raw terminals get firewall protection too.', requiresLlm: false },
 ];
 
 // IDE agent configs, each gated on whether the target project actually uses that tool.
@@ -373,6 +377,34 @@ program
   });
 
 program
+  .command('intercept <command...>')
+  .description('Evaluate a shell command against the firewall. Exits 1 if the action is destructive. Used by the optional shell guard and raw terminals.')
+  .option('--json', 'Always print machine-readable output')
+  .action((commandParts: string[], options) => {
+    const cmd = commandParts.join(' ');
+    const result = interceptCommand(cmd);
+    if (result.blocked) {
+      if (options.json) console.log(result.jsonResponse);
+      process.exit(1);
+    }
+    if (options.json) {
+      console.log(JSON.stringify({ allowed: true, evaluated: cmd }));
+    } else {
+      console.log(chalk.green('✓ Allowed'));
+    }
+  });
+
+program
+  .command('guard-install')
+  .description('Install the optional shell guard into ~/.zshrc or ~/.bashrc so raw terminals are firewall-protected too')
+  .option('--shell <name>', 'Shell config to edit: bash or zsh (default: auto-detected)')
+  .option('--remove', 'Remove the previously installed guard block')
+  .action((options) => {
+    const shell = options.shell === 'zsh' || options.shell === 'bash' ? options.shell : detectShell();
+    installShellGuard({ shell, remove: Boolean(options.remove) });
+  });
+
+program
   .command('telemetry')
   .description('View Agent Telemetry')
   .action(() => {
@@ -419,7 +451,16 @@ program
   .description('Track AI-authored commits, scan their diffs, and create approval/quarantine branches')
   .option('--quiet', 'Suppress non-essential output (used inside git hooks)')
   .option('--all', 'Watch the last 10 commits instead of just HEAD')
+  .option('--mark <sha:label>', 'Manually label a commit as ai or human (overrides the heuristic)')
   .action((count, options) => {
+    if (options.mark) {
+      const idx = options.mark.indexOf(':');
+      const sha = idx >= 0 ? options.mark.slice(0, idx) : options.mark;
+      const label: 'ai' | 'human' = idx >= 0 && options.mark.slice(idx + 1) === 'human' ? 'human' : 'ai';
+      const result = markCommit(sha, label);
+      console.log(result.message);
+      return;
+    }
     const all = options.all || count;
     const results = all
       ? watchRecentCommits(typeof count === 'number' ? count : 10)
