@@ -11,7 +11,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { scanDiffForSecretsAndPII } from './scanner';
-import { applyPersona, PersonaType } from './personas';
+import { applyPersona, applyPersonaManifest, PersonaType } from './personas';
 import { generatePRDescription } from './pr-enforcer';
 import { initWebhookListener } from './rollback';
 import { logTelemetry, getTelemetry } from './telemetry';
@@ -23,6 +23,7 @@ import { generateSbom, writeSbom } from './sbom';
 import { runCompliance, printComplianceReport } from './compliance';
 import { getVersion } from './path-utils';
 import { printBanner } from './banner';
+import { watchCommit, watchRecentCommits, getWatcherSummary, loadWatcherData } from './ai-watcher';
 
 const program = new Command();
 
@@ -32,22 +33,108 @@ program
   .version(getVersion());
 
 // Multi-pronged capabilities registry
-const CAPABILITIES = `
-# Soloknuckle Agent Capabilities Registry
+const CAPABILITIES: Array<{ name: string; arguments: string; description: string; requiresLlm: boolean }> = [
+  { name: 'check', arguments: '[options]', description: 'Runs strict pre-flight checks (lint, test, typecheck, secret scan). Supports --strict for hard gates and --fix for auto-fixes. MUST be run before any git commit.', requiresLlm: false },
+  { name: 'audit', arguments: '', description: 'Analyzes local uncommitted code against AGENTS.md rules using an LLM.', requiresLlm: true },
+  { name: 'score', arguments: '', description: 'Calculates a 0-100 project health score across 7 weighted domains.', requiresLlm: false },
+  { name: 'init', arguments: '', description: 'Scaffolds hooks and rules for any project (AGENTS.md, git hooks, IDE configs).', requiresLlm: false },
+  { name: 'pr', arguments: '', description: 'Auto-generates a PR description from a git diff using an LLM.', requiresLlm: true },
+  { name: 'persona', arguments: '<type> <folder>', description: 'Applies bounded-context agent rules to specific directories.', requiresLlm: false },
+  { name: 'sbom', arguments: '[-o path]', description: 'Generates a CycloneDX SBOM from your dependencies.', requiresLlm: false },
+  { name: 'compliance', arguments: '', description: 'Audits your codebase for production hygiene compliance.', requiresLlm: false },
+  { name: 'telemetry', arguments: '', description: 'Shows AI vs human contribution telemetry.', requiresLlm: false },
+  { name: 'ai-watch', arguments: '[count]', description: 'Tracks AI-authored commits, scans their diffs, and creates approval/quarantine branches.', requiresLlm: false },
+  { name: 'capabilities', arguments: '[-f json|text]', description: 'Lists every command available to AI agents in machine-readable form.', requiresLlm: false },
+  { name: 'watch', arguments: '', description: 'Starts the rollback daemon and webhook listener.', requiresLlm: false },
+];
 
-You are integrated with Soloknuckle, a Production Hygiene OS. You have access to the following commands:
-- \`npx soloknuckle check\`: Runs strict pre-flight checks (lint, test, typecheck, secret scan). Supports --strict mode for hard gate enforcement. MUST be run before any git commit.
-- \`npx soloknuckle audit\`: Analyzes local uncommitted code against AGENTS.md rules.
-- \`npx soloknuckle score\`: Calculates a 0-100 project health score and provides AI suggestions.
-- \`npx soloknuckle init\`: Scaffolds hooks and rules for any project.
-- \`npx soloknuckle pr\`: Auto-generates a PR description from a git diff.
-- \`npx soloknuckle persona <type> <folder>\`: Applies bounded-context agent rules to specific directories.
-- \`npx soloknuckle sbom\`: Generates a CycloneDX-like SBOM from your dependencies.
-- \`npx soloknuckle compliance\`: Audits your codebase for production hygiene compliance.
-`;
+// IDE agent configs, each gated on whether the target project actually uses that tool.
+type IdeDef = {
+  name: string;
+  markers: string[];
+  create: (target: string, agentInstructions: string) => void;
+};
+
+const IDE_DEFINITIONS: IdeDef[] = [
+  {
+    name: 'Cursor',
+    markers: ['.cursor', '.cursorrules'],
+    create(target, agentInstructions) {
+      const path_ = path.join(target, '.cursorrules');
+      if (!fs.existsSync(path_)) {
+        fs.writeFileSync(path_, agentInstructions);
+        console.log(chalk.green('✅ Created .cursorrules for Cursor AI'));
+      }
+    },
+  },
+  {
+    name: 'Windsurf',
+    markers: ['.windsurf', '.windsurfrules'],
+    create(target, agentInstructions) {
+      const path_ = path.join(target, '.windsurfrules');
+      if (!fs.existsSync(path_)) {
+        fs.writeFileSync(path_, agentInstructions);
+        console.log(chalk.green('✅ Created .windsurfrules for Windsurf IDE'));
+      }
+    },
+  },
+  {
+    name: 'Claude Code / Antigravity / Gemini',
+    markers: ['SKILL.md', '.claude'],
+    create(target, agentInstructions) {
+      const path_ = path.join(target, 'SKILL.md');
+      if (!fs.existsSync(path_)) {
+        const skillContent = `---
+name: production-hygiene-enforcer
+description: Enforces safe deployment rules and hygiene practices.
+---
+# Instructions
+${agentInstructions}`;
+        fs.writeFileSync(path_, skillContent);
+        console.log(chalk.green('✅ Created SKILL.md for Claude Code / Antigravity / Gemini'));
+      }
+    },
+  },
+  {
+    name: 'Replit',
+    markers: ['.replit'],
+    create(target) {
+      const path_ = path.join(target, '.replit');
+      if (!fs.existsSync(path_)) {
+        fs.writeFileSync(path_, 'run = "npx soloknuckle check"\n');
+        console.log(chalk.green('✅ Created .replit config for Replit Agent'));
+      }
+    },
+  },
+  {
+    name: 'ChatGPT Codex / Lovable / Claude Desktop',
+    markers: ['mcp-config.json', '.mcp.json', '.codex', '.gemini'],
+    create(target) {
+      const path_ = path.join(target, 'mcp-config.json');
+      if (!fs.existsSync(path_)) {
+        const mcpContent = JSON.stringify({
+          mcpServers: {
+            soloknuckle: {
+              command: "npx",
+              args: ["-y", "soloknuckle-mcp"]
+            }
+          }
+        }, null, 2);
+        fs.writeFileSync(path_, mcpContent);
+        console.log(chalk.green('✅ Created mcp-config.json for ChatGPT Codex / Lovable / Claude Desktop integration'));
+      }
+    },
+  },
+];
+
+function detectIdes(target: string): string[] {
+  return IDE_DEFINITIONS
+    .filter((ide) => ide.markers.some((marker) => fs.existsSync(path.join(target, marker))))
+    .map((ide) => ide.name);
+}
 
 // Extracted init logic — used by both the default handler and the init command
-function runInit(target: string): void {
+function runInit(target: string, allIdes = false): void {
   printBanner();
   console.log(chalk.green('🚀 Initializing Soloknuckle Production Hygiene Kit...'));
   console.log(chalk.blue(`Target directory: ${target}`));
@@ -85,6 +172,8 @@ exit 0`;
 if command -v soloknuckle >/dev/null 2>&1; then
   echo "🛡️ Soloknuckle checking for secrets/PII before commit..."
   soloknuckle check || { echo "❌ Pre-commit checks failed. Commit aborted."; exit 1; }
+  echo "🛡️ Soloknuckle tracking AI vs human commit..."
+  soloknuckle ai-watch --quiet || true
 else
   echo "⚠️ soloknuckle not installed; skipping pre-commit check. Install with 'npm i -g soloknuckle'."
 fi
@@ -92,53 +181,30 @@ exit 0`;
     fs.writeFileSync(preCommitPath, preCommitContent);
     fs.chmodSync(preCommitPath, '755');
     console.log(chalk.green('✅ Installed git pre-push and pre-commit hooks (Husky-compatible)'));
+  } else {
+    console.log(chalk.yellow('⚠️ No .git directory — skipped git hook installation. Run `git init` first, then re-run `soloknuckle init`.'));
   }
 
-  // Agentic IDE Plugin & Skill Generation
+  // Agentic IDE Plugin & Skill Generation — only for IDEs detected in the project,
+  // or for all supported IDEs when running with --all-ides. If nothing is detected,
+  // scaffold the defaults so a fresh project is immediately agent-ready.
   const agentInstructions = 'Always read AGENTS.md before modifying code. If you need to know what tools are available, run `npx soloknuckle capabilities`. Run `npx soloknuckle check` before committing.';
 
-  const cursorRulesPath = path.join(target, '.cursorrules');
-  if (!fs.existsSync(cursorRulesPath)) {
-    fs.writeFileSync(cursorRulesPath, agentInstructions);
-    console.log(chalk.green('✅ Created .cursorrules for Cursor AI'));
+  const detected = detectIdes(target);
+  const autoOnly = detected.length > 0 && !allIdes
+    ? IDE_DEFINITIONS.filter((ide) => detected.includes(ide.name))
+    : IDE_DEFINITIONS;
+
+  if (allIdes) {
+    console.log(chalk.cyan('📌 --all-ides: scaffolding configs for every supported agent.'));
+  } else if (detected.length === 0) {
+    console.log(chalk.cyan('📌 No editor/agent detected — scaffolding the default set (use --all-ides for every agent).'));
+  } else {
+    console.log(chalk.cyan(`📌 Detected: ${detected.join(', ')}. Scaffolding only these.`));
   }
 
-  const windsurfRulesPath = path.join(target, '.windsurfrules');
-  if (!fs.existsSync(windsurfRulesPath)) {
-    fs.writeFileSync(windsurfRulesPath, agentInstructions);
-    console.log(chalk.green('✅ Created .windsurfrules for Windsurf IDE'));
-  }
-
-  const skillMdPath = path.join(target, 'SKILL.md');
-  if (!fs.existsSync(skillMdPath)) {
-    const skillContent = `---
-name: production-hygiene-enforcer
-description: Enforces safe deployment rules and hygiene practices.
----
-# Instructions
-${agentInstructions}`;
-    fs.writeFileSync(skillMdPath, skillContent);
-    console.log(chalk.green('✅ Created SKILL.md for Claude Code / Antigravity / Gemini'));
-  }
-
-  const replitPath = path.join(target, '.replit');
-  if (!fs.existsSync(replitPath)) {
-    fs.writeFileSync(replitPath, 'run = "npx soloknuckle check"\n');
-    console.log(chalk.green('✅ Created .replit config for Replit Agent'));
-  }
-
-  const mcpPath = path.join(target, 'mcp-config.json');
-  if (!fs.existsSync(mcpPath)) {
-    const mcpContent = JSON.stringify({
-      mcpServers: {
-        soloknuckle: {
-          command: "npx",
-          args: ["-y", "soloknuckle-mcp"]
-        }
-      }
-    }, null, 2);
-    fs.writeFileSync(mcpPath, mcpContent);
-    console.log(chalk.green('✅ Created mcp-config.json for ChatGPT Codex / Lovable / Claude Desktop integration'));
+  for (const ide of autoOnly) {
+    ide.create(target, agentInstructions);
   }
 
   console.log(chalk.cyan('✨ Initialization complete. Your project is now fully protected and Multi-Pronged Agent-Ready.'));
@@ -172,16 +238,29 @@ if (process.argv.length <= 2) {
 program
   .command('capabilities')
   .description('Returns a structured registry of all tools available to AI agents')
-  .action(() => {
-    console.log(CAPABILITIES);
+  .option('-f, --format <type>', 'Output format: text (default) or json', 'text')
+  .action((options) => {
+    if (options.format === 'json') {
+      console.log(JSON.stringify(CAPABILITIES, null, 2));
+      return;
+    }
+    console.log(chalk.cyan.bold('# Soloknuckle Agent Capabilities Registry'));
+    console.log(chalk.dim('You are integrated with Soloknuckle, a Production Hygiene OS.\n'));
+    for (const cap of CAPABILITIES) {
+      const llmTag = cap.requiresLlm ? chalk.yellow(' (LLM)') : '';
+      console.log(`${chalk.green('npx soloknuckle')} ${chalk.bold(cap.name)} ${chalk.dim(cap.arguments)}${llmTag}`);
+      console.log(chalk.dim(`  ${cap.description}`));
+    }
+    console.log(chalk.dim('\nRun `npx soloknuckle capabilities -f json` for machine-readable output.'));
   });
 
 
 program
   .command('init')
   .description('Scaffolds AGENTS.md, git hooks, IDE plugin configs, and Agent Skills into any target project')
-  .action(() => {
-    runInit(process.cwd());
+  .option('--all-ides', 'Scaffold configs for every supported agent, not just detected ones')
+  .action((options) => {
+    runInit(process.cwd(), Boolean(options.allIdes));
   });
 
 program
@@ -250,13 +329,20 @@ program
 program
   .command('persona <type> <folder>')
   .description('Generate directory-specific agent rules (frontend-ux | backend-security | data-engineer)')
-  .action((type, folder) => {
+  .option('-f, --format <type>', 'Output format: text (default) or json', 'text')
+  .action((type, folder, options) => {
     try {
+      if (options.format === 'json') {
+        const manifest = applyPersonaManifest(folder, type as PersonaType);
+        console.log(JSON.stringify(manifest, null, 2));
+        return;
+      }
       const p = applyPersona(folder, type as PersonaType);
       console.log(chalk.green(`✅ Created persona config at ${p}`));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       console.log(chalk.red(`Failed to apply persona: ${msg}`));
+      process.exit(1);
     }
   });
 
@@ -329,6 +415,41 @@ program
   .action(() => {
     const report = runCompliance();
     printComplianceReport(report);
+  });
+
+program
+  .command('ai-watch [count]')
+  .description('Track AI-authored commits, scan their diffs, and create approval/quarantine branches')
+  .option('--quiet', 'Suppress non-essential output (used inside git hooks)')
+  .option('--all', 'Watch the last 10 commits instead of just HEAD')
+  .action((count, options) => {
+    const all = options.all || count;
+    const results = all
+      ? watchRecentCommits(typeof count === 'number' ? count : 10)
+      : [watchCommit()];
+
+    for (const result of results) {
+      if (result.success && result.record) {
+        logTelemetry(result.record.isAi, result.record.diffStats.additions);
+      }
+
+      if (result.success && result.record && result.record.scanResult.violations.length > 0) {
+        console.log(chalk.red(`🔒 ${result.message}`));
+        for (const v of result.record.scanResult.violations) {
+          console.log(chalk.dim(`    → ${v}`));
+        }
+      } else if (result.success) {
+        console.log(chalk.green(`✅ ${result.message}`));
+      } else {
+        console.log(chalk.yellow(`⚠️  ${result.message}`));
+      }
+    }
+
+    if (!options.quiet) {
+      const summary = loadWatcherData();
+      console.log(chalk.dim(`\n${getWatcherSummary()}`));
+      console.log(chalk.dim(`Acceptance rate: ${summary.acceptanceRate}%, Quarantine rate: ${summary.quarantineRate}%`));
+    }
   });
 
 if (process.argv.length > 2) {

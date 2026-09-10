@@ -7,6 +7,12 @@ import type { ScoreMetrics } from '../cli/scorer';
 
 const TEST_DIR = path.join(os.tmpdir(), 'soloknuckle-test-gates');
 
+const DEFAULT_WEIGHTS = {
+  quality: 2, testing: 4, security: 2, efficiency: 2, accessibility: 2,
+  dependencies: 1, documentation: 0.5, gitHygiene: 0.5, ciPipeline: 0.5,
+  featureFlags: 0.5, performance: 2, reliability: 2, supplyChain: 1,
+};
+
 function makeMetrics(overrides: Partial<Record<string, number>> = {}): ScoreMetrics {
   const defaults: Record<string, { score: number; rawOutput: string }> = {
     quality: { score: 100, rawOutput: '' },
@@ -31,7 +37,7 @@ function makeMetrics(overrides: Partial<Record<string, number>> = {}): ScoreMetr
       defaults[key] = { score: val, rawOutput: '' };
     }
   }
-  return defaults as unknown as ScoreMetrics;
+  return { ...defaults, weights: { ...DEFAULT_WEIGHTS } } as unknown as ScoreMetrics;
 }
 
 describe('evaluateGates', () => {
@@ -81,6 +87,20 @@ describe('evaluateGates', () => {
     expect(report.scorecard.domains).toHaveLength(7);
     expect(report.scorecard.overallScore).toBeGreaterThanOrEqual(0);
     expect(report.scorecard.overallScore).toBeLessThanOrEqual(100);
+  });
+
+  it('weights the overall score by the documented 20/20/20/10/10/10/10 split', () => {
+    // Code Quality(4) + Testing(4) + Security(4) carry 20% each; the rest 10%.
+    const metrics = makeMetrics({
+      quality: 100, efficiency: 100, // Code Quality = 100
+      testing: 0,                    // Testing = 0
+      security: 0, accessibility: 0, // Security = 0
+      performance: 0, reliability: 0, dependencies: 0, supplyChain: 0,
+      documentation: 0, gitHygiene: 0, ciPipeline: 0, featureFlags: 0,
+    });
+    const report = evaluateGates(metrics);
+    // weighted = (100*4 + 0*4 + 0*4 + 0*2 + 0*2 + 0*2 + 0*2) / 20 = 20
+    expect(report.scorecard.overallScore).toBe(20);
   });
 });
 

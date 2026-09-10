@@ -43,3 +43,24 @@ export function applyPersona(folderPath: string, personaType: PersonaType): stri
   fs.writeFileSync(cursorRulesPath, personaRules);
   return cursorRulesPath;
 }
+
+export interface PersonaManifest {
+  personaType: PersonaType;
+  folder: string;
+  file: string;
+  rules: string;
+}
+
+/**
+ * Same behavior as applyPersona, but returns a structured manifest so agents
+ * and CLIs can render the result as JSON instead of markdown text.
+ */
+export function applyPersonaManifest(folderPath: string, personaType: PersonaType): PersonaManifest {
+  const file = applyPersona(folderPath, personaType);
+  return {
+    personaType,
+    folder: path.dirname(file),
+    file,
+    rules: PERSONA_RULES[personaType],
+  };
+}
