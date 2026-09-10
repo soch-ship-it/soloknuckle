@@ -16,6 +16,7 @@ interface SbomDocument {
   version: number;
   metadata: {
     timestamp: string;
+    commit: string;
     tools: { name: string; version: string }[];
   };
   components: SbomComponent[];
@@ -126,6 +127,7 @@ export function generateSbom(): SbomDocument {
     version: 1,
     metadata: {
       timestamp: new Date().toISOString(),
+      commit: getGitCommit(),
       tools: [
         { name: 'soloknuckle', version: getVersion() },
       ],

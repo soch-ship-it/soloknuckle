@@ -96,6 +96,25 @@ describe('runMutationTesting', () => {
     const result = await runMutationTesting([], 1);
     expect(result.totalMutations).toBeGreaterThan(0);
   });
+
+  it('generates string mutations for stringly-typed source', async () => {
+    const STRINGY = `export function status(code: string): string {
+  if (code === 'active') {
+    return 'live';
+  }
+  return '';
+}
+`;
+    fs.writeFileSync(path.join(tmpDir, 'src', 'stringy.ts'), STRINGY);
+    mockExecSync.mockReturnValue('1 passed');
+
+    const result = await runMutationTesting(['src/stringy.ts'], 20);
+    const stringMutations = result.results.filter(r => r.mutation.type === 'string');
+    expect(stringMutations.length).toBeGreaterThan(0);
+    const mutatedValues = stringMutations.map(r => r.mutation.mutated);
+    // 'active' → tampered or emptied variants must be present
+    expect(mutatedValues.some(m => m.includes("''") || m.includes('""'))).toBe(true);
+  });
 });
 
 describe('evaluateMutationGate', () => {

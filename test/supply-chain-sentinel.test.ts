@@ -133,6 +133,27 @@ describe('SupplyChainSentinel', () => {
     expect(report.findings.filter((f) => f.category === 'npm-audit')).toHaveLength(0);
   });
 
+  it('flags stale dependencies on deep scan', async () => {
+    writePkg({ name: 'app', dependencies: { lodash: '^4.0.0' } });
+    writeDep('lodash', { name: 'lodash' });
+    const old = new Date();
+    old.setFullYear(old.getFullYear() - 2);
+    fs.utimesSync(path.join(TEST_DIR, 'node_modules', 'lodash'), old, old);
+    const report = await scan('deep');
+    const finding = report.findings.find((f) => f.category === 'stale-package');
+    expect(finding).toBeTruthy();
+    expect(finding!.severity).toBe('low');
+    expect(finding!.package).toBe('lodash');
+    expect(finding!.message).toContain('not been updated');
+  });
+
+  it('does not flag freshly installed packages', async () => {
+    writePkg({ name: 'app', dependencies: { lodash: '^4.0.0' } });
+    writeDep('lodash', { name: 'lodash' });
+    const report = await scan('deep');
+    expect(report.findings.find((f) => f.category === 'stale-package')).toBeUndefined();
+  });
+
   it('tolerates missing or invalid package.json', async () => {
     const report = await scan('standard');
     expect(report.findings).toBeTruthy();

@@ -26,7 +26,30 @@ export function loadWeights(): Record<HygieneDimension, number> {
   return { ...DEFAULT_WEIGHTS };
 }
 
+// Maps each domain to the dimensions that make it up. The domain's weight is
+// the sum of its dimensions' weights, so the overall scorecard average honors
+// the documented 20/20/20/10/10/10/10 split while staying consistent with the
+// per-dimension overall score computed by calculateMetrics().
+const DOMAIN_TO_DIMENSIONS: Record<string, HygieneDimension[]> = {
+  'Code Quality': ['quality', 'efficiency'],
+  'Testing': ['testing'],
+  'Security & Compliance': ['security', 'accessibility'],
+  'Performance': ['performance'],
+  'Reliability': ['reliability'],
+  'Dependencies & Supply Chain': ['dependencies', 'supplyChain'],
+  'Documentation & Visibility': ['documentation', 'gitHygiene', 'ciPipeline', 'featureFlags'],
+};
+
+function domainWeight(name: string, weights: Record<HygieneDimension, number>): number {
+  const dims = DOMAIN_TO_DIMENSIONS[name] || [];
+  return dims.reduce((sum, d) => sum + (weights[d] ?? 0), 0);
+}
+
 export function calculateSevenDomainScorecard(metrics: ScoreMetrics): SevenDomainScorecard {
+  const weights = metrics.weights && Object.keys(metrics.weights).length > 0
+    ? metrics.weights
+    : { ...DEFAULT_WEIGHTS };
+
   const domains: DomainScorecard[] = [
     {
       name: 'Code Quality',
@@ -86,7 +109,15 @@ export function calculateSevenDomainScorecard(metrics: ScoreMetrics): SevenDomai
     },
   ];
 
-  const overallScore = Math.round(domains.reduce((s, d) => s + d.score, 0) / domains.length);
+  const totalWeight = domains.reduce((s, d) => s + domainWeight(d.name, weights), 0);
+  const overallScore = totalWeight > 0
+    ? Math.round(
+        domains.reduce(
+          (s, d) => s + d.score * domainWeight(d.name, weights),
+          0
+        ) / totalWeight
+      )
+    : Math.round(domains.reduce((s, d) => s + d.score, 0) / domains.length);
 
   return {
     domains,
