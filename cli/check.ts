@@ -28,6 +28,10 @@ import {
   calculateMetrics,
 } from './scorer';
 import { evaluateGates, printGateReport, printSevenDomainScorecard } from './gates';
+import { validateCallerContracts, evaluateContractGate } from './caller-contract';
+import { validateTestContext, evaluateContextGate } from './context-validator';
+import { detectFlakyTests, evaluateFlakyGate } from './flaky-detector';
+import { runMutationTesting, evaluateMutationGate } from './mutation';
 
 interface CheckOptions {
   fix?: boolean;
@@ -308,6 +312,15 @@ export async function runCheck(options: CheckOptions = {}): Promise<void> {
       console.log(chalk.red.bold('  Strict mode: blocked by hard gates. Fix failing dimensions above.'));
       process.exit(1);
     }
+
+    // Test-quality analyzers (mutation/context/flaky/contract) run only in
+    // --strict and only after the metric gates pass, since each spawns the
+    // project's test suite at least once.
+    const analyzersPassed = await runTestQualityAnalyzers();
+    if (!analyzersPassed) {
+      console.log(chalk.red.bold('  Strict mode: blocked by test quality analyzers. Fix failing checks above.'));
+      process.exit(1);
+    }
   }
 
   if (options.fix && allIssues.length > 0) {
@@ -318,6 +331,37 @@ export async function runCheck(options: CheckOptions = {}): Promise<void> {
   if (allIssues.some((i) => i.severity === 'critical')) {
     process.exit(1);
   }
+}
+
+async function runTestQualityAnalyzers(): Promise<boolean> {
+  console.log(chalk.bold.cyan('\n  🧪  Test Quality Analyzers (--strict)'));
+  console.log(chalk.dim('  ' + '─'.repeat(40)));
+
+  const contract = evaluateContractGate(await validateCallerContracts());
+  const context = evaluateContextGate(await validateTestContext());
+  const flaky = evaluateFlakyGate(await detectFlakyTests([], 2));
+  const mutation = evaluateMutationGate(await runMutationTesting([], 5, 10));
+
+  const analyzers = [
+    { name: 'Caller Contract', ...contract },
+    { name: 'Test Context',    ...context },
+    { name: 'Flaky Tests',     ...flaky },
+    { name: 'Mutation Score',  ...mutation },
+  ];
+
+  let allPassed = true;
+  for (const a of analyzers) {
+    const icon = a.passed ? chalk.green('✓') : chalk.red('✗');
+    const status = a.passed ? chalk.green('PASS') : chalk.red('FAIL');
+    console.log(`  ${icon} ${chalk.bold(a.name.padEnd(18))} ${status}  ${chalk.dim(`${a.score}/${a.threshold}`)}`);
+    if (!a.passed) {
+      allPassed = false;
+      console.log(chalk.red(`     → ${a.details}`));
+    }
+  }
+
+  console.log('');
+  return allPassed;
 }
 
 async function attemptFixes(issues: Issue[]): Promise<void> {
