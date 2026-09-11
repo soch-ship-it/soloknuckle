@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-describe('e2e: soloknuckle check', () => {
+describe('e2e: soloknuckle firewall (intercept)', () => {
   const dummyDir = path.join(__dirname, 'dummy-repo');
 
   beforeAll(() => {
@@ -25,14 +25,19 @@ describe('e2e: soloknuckle check', () => {
     }
   });
 
-  it('should block execution if lint fails', () => {
+  it('should block destructive commands via intercept', () => {
     try {
-      execSync('npx ts-node ../../cli/index.ts check', { cwd: dummyDir, stdio: 'pipe' });
+      execSync('npx --no-install tsx ../../cli/index.ts intercept "rm -rf /"', { cwd: dummyDir, stdio: 'pipe' });
       // Should not reach here
       expect(true).toBe(false);
     } catch (e: unknown) {
       const err = e as { status?: number };
       expect(err.status).toBe(1);
     }
-  });
+  }, 20000);
+
+  it('should allow safe commands via intercept', () => {
+    const out = execSync('npx --no-install tsx ../../cli/index.ts intercept "npm run build"', { cwd: dummyDir, stdio: 'pipe' });
+    expect(out.toString()).toContain('Allowed');
+  }, 20000);
 });

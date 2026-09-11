@@ -4,6 +4,27 @@ All notable changes to Soloknuckle will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-09-11
+
+### Added
+
+- **`intercept` CLI command** — run a shell command through Soloknuckle's firewall rules; exits `1` when blocked and offers machine-readable `--json` output for agents
+- **`guard-install` command** — optionally wrap `rm`, `git`, `chmod`, `dd`, `mkfs`, `curl`, and `wget` in `~/.zshrc` / `~/.bashrc` so raw terminals get Malware-style protection too; `--remove` cleans it up
+- **macOS Keychain storage** — prompt-saved LLM API keys are stored in Keychain (`apiKeyRef` marker in config) with a permission-safe fallback; `resolveApiKey()` reads env → stored config → keychain
+- **`ai-watch --mark <sha>:ai|human`** — manual overrides in `.soloknuckle/ai-overrides.json`
+- **Shared secret scanner** — `scanTextForSecrets` line classifier reused by the compliance hardcoded-secret check over `src/*` and root `.env*`
+- **npm provenance** — releases are published with signed provenance attestations
+
+### Fixed
+
+- **Webhook read route was unauthenticated** — `GET /webhooks/incidents` now requires `X-Webhook-Secret`; loud warning when `WEBHOOK_HOST` is set to a non-loopback address
+- **Compliance now detects committed `.env` files** (11th check: "No `.env` committed to git")
+- **Hardcoded credential assignment detection** + placeholder heuristic so `.env.example` / docs don't self-flag
+- **`ai-watch` misclassification** — scoring for AI signatures/bot authors/human authors with high/low confidence
+- **`capabilities -f json`** emitted banner noise from dotenv; now real JSON
+- **Pre-publish guard** — `prepublishOnly` builds and runs the full test suite before any npm publish
+- **`dev` script** — replaced broken `ts-node` with `tsx` (works on Node 24)
+
 ## [1.0.0] - 2026-08-19
 
 ### Added
