@@ -22,7 +22,7 @@ npm test
 ## Development
 
 ```bash
-# Run in dev mode (ts-node)
+# Run in dev mode (tsx)
 npm run dev
 
 # Type check

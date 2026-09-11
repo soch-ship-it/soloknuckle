@@ -5,7 +5,7 @@ import path from 'path';
  * The installed package version, read from the package.json that ships with
  * the CLI. Works in both layouts:
  *  - installed/published: dist/cli/*.js -> ../../package.json
- *  - running from source (ts-node / vitest): cli/*.ts -> ../package.json
+ *  - running from source (tsx / vitest): cli/*.ts -> ../package.json
  * Falls back to 0.0.0 only if no package.json can be found.
  */
 export function getVersion(): string {
