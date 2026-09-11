@@ -12,7 +12,7 @@ It is built for **AI-assisted development**: code written or reviewed by Cursor,
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-493%20passing-brightgreen" alt="493 tests passing">
+  <img src="https://img.shields.io/badge/tests-494%20passing-brightgreen" alt="494 tests passing">
   <img src="https://img.shields.io/badge/coverage-87%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
@@ -443,7 +443,7 @@ soloknuckle/
 │   ├── personas.ts           # Per-directory bounded-context rules
 │   ├── pr-enforcer.ts        # Strict PR description generator
 │   └── budget.ts             # Agent budget tracking
-├── test/                     # 29 test suites, 493 tests
+├── test/                     # 29 test suites, 494 tests
 ├── git-hooks/                # pre-commit, commit-msg hook scripts
 ├── templates/                # Feature flag templates + example flags.json
 ├── scripts/                  # Setup + asset generation scripts
@@ -458,11 +458,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 493 tests
+npm test                      # run all 494 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 493 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
+**Current status:** 494 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
 
