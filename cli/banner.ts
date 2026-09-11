@@ -8,7 +8,7 @@ let cachedBanner: string | null = null;
  * The ASCII wordmark, read from the assets folder that ships with the
  * package. Works in both layouts:
  *  - installed/published: dist/cli/* -> ../../assets
- *  - running from source (ts-node / vitest): cli/* -> ../assets
+ *  - running from source (tsx / vitest): cli/* -> ../assets
  * Empty string when the asset is unavailable.
  */
 export function getBanner(): string {

@@ -71,7 +71,7 @@ export function getTestingScore(): DimensionScore {
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
       if (pkg.scripts && pkg.scripts.test) {
         try {
-          const output = execSync('npm run test', { encoding: 'utf-8', cwd: process.cwd(), stdio: 'pipe', timeout: 30000 });
+          const output = execSync('npm run test 2>&1', { encoding: 'utf-8', cwd: process.cwd(), stdio: 'pipe', timeout: 30000 });
           _testCacheCwd = cwd;
           _testResultCache = { score: 100, rawOutput: output.substring(0, 1000) };
           return _testResultCache;
