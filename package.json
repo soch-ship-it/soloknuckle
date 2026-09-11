@@ -1,6 +1,6 @@
 {
   "name": "soloknuckle",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Production hygiene CLI — pre-flight checks, secret scanning, agent firewall, and rollback daemon for any project.",
   "main": "./dist/cli/index.js",
   "types": "./dist/cli/index.d.ts",
@@ -18,11 +18,12 @@
   "scripts": {
     "build": "tsc",
     "build:bin": "node scripts/build-binaries.mjs",
-    "dev": "ts-node cli/index.ts",
+    "dev": "tsx cli/index.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build && npm test"
   },
   "repository": {
     "type": "git",
@@ -41,7 +42,7 @@
     "code-quality",
     "developer-tools"
   ],
-  "author": "",
+  "author": "soch-ship-it",
   "license": "ISC",
   "publishConfig": {
     "access": "public",
@@ -68,7 +69,7 @@
     "esbuild": "0.28.2",
     "eslint": "^10.8.1",
     "supertest": "^7.2.2",
-    "ts-node": "^10.9.2",
+    "tsx": "4.23.13",
     "typescript": "^7.0.2",
     "vitest": "5.0.0"
   }
