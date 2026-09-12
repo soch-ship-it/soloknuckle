@@ -4,6 +4,8 @@ dist/
 .env.*
 .DS_Store
 .vscode/
+# VSCode extension source (hidden from public repo for now)
+vscode/
 .idea/
 .soloknuckle/
 flags.json
