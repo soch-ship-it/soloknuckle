@@ -4,12 +4,6 @@
   <img src="assets/soloknuckle-logo.svg" alt="SOLO KNUCKLE wordmark" width="560">
 </p>
 
-**Soloknuckle** is a free, open-source CLI that runs [production hygiene](#core-commands-free-no-api-key) checks — secret scanning, a destructive-command firewall, mutation testing, AI-vs-human telemetry, and hard CI gates — on Node.js projects before they ship. One command (`npx soloknuckle init`), zero config, everything runs locally on Node.js 20+.
-
-It is built for **AI-assisted development**: code written or reviewed by Cursor, Claude Code, Copilot, Windsurf, or any coding agent. Those tools ship fast and fail in specific, repeatable ways — leaked API keys, `rm -rf` in a shell step, tests that pass without testing anything, dependencies nobody pinned. Soloknuckle catches exactly those failure modes before they reach production.
-
-And because Soloknuckle ships a native [MCP server](#mcp-server-for-ai-agents), your agent doesn't have to *remember* any of this — it can **call the checks as tools** (`soloknuckle_secrets`, `soloknuckle_intercept`, `soloknuckle_score`…) and get a verdict before it ships anything.
-
 <p align="center">
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
@@ -20,20 +14,26 @@ And because Soloknuckle ships a native [MCP server](#mcp-server-for-ai-agents), 
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
 </p>
 
+**Soloknuckle is the production hygiene layer for the era where most new code is written by AI.** It scans secrets before they ship, fires a firewall at destructive commands before they destroy, proves your tests actually *test* something, and gives you hard, CI-enforceable gates so bad code never reaches production — from a CLI, from a CI pipeline, and natively from inside any AI coding agent via MCP.
+
+The depth you'd expect from a platform team that costs tens of thousands a year, running as one free, local, open-source command.
+
 ---
 
 ## Table of Contents
 
+- [The Problem](#the-problem)
+- [What It Is — The Product](#what-it-is--the-product)
+- [Why It Matters — The Value](#why-it-matters--the-value)
+- [One Standard. Everywhere.](#one-standard-everywhere)
 - [Quick Start](#quick-start)
-- [What Soloknuckle Actually Does](#what-soloknuckle-actually-does)
-- [Commands Reference](#commands-reference)
+- [MCP Server for AI Agents](#mcp-server-for-ai-agents)
 - [7-Domain Scorecard](#7-domain-scorecard)
 - [Hard Gates (`--strict`)](#hard-gates--strict)
-- [Unique Testing Features](#unique-testing-features)
-- [MCP Server for AI Agents](#mcp-server-for-ai-agents)
+- [Commands Reference](#commands-reference)
 - [IDE Integration](#ide-integration)
 - [LLM Configuration (Optional)](#llm-configuration-optional)
-- [Security](#security)
+- [Security & Package Integrity](#security--package-integrity)
 - [What Soloknuckle Does NOT Do](#what-soloknuckle-does-not-do)
 - [Who Is It For](#who-is-it-for)
 - [Architecture & Project Structure](#architecture--project-structure)
@@ -42,6 +42,89 @@ And because Soloknuckle ships a native [MCP server](#mcp-server-for-ai-agents), 
 - [Contributing](#contributing)
 - [FAQ](#faq)
 - [License](#license)
+
+---
+
+## The Problem
+
+AI coding agents write code faster than any human team ever has — and they fail in patterns humans rarely do. The failures are cheap to make and expensive to ship:
+
+| Failure mode | What it looks like | What it costs |
+|---|---|---|
+| **Credential leakage** | An API key or AWS secret committed in a generated diff | The breach, the blast radius, the incident postmortem |
+| **Destructive commands** | `rm -rf` or `git push --force` in a "helpful" shell step | Hours of work or the entire filesystem |
+| **Coverage illusions** | "100% line coverage" that detects 4% of bugs | Real regressions shipped with a green badge |
+| **Same-model blindness** | AI writes the tests *and* the code — wrong in the same direction, so tests never catch the bug | Flaws that pass CI and fail in production |
+| **Flaky suites** | Tests that pass sometimes, fail randomly, get ignored forever | An estimated **~$360k/month** in manual triage for a large flaky suite |
+| **Unknown authorship** | Nobody can answer "how much of this codebase is AI-written?" | You can't audit, attribute, or manage what you can't measure |
+| **Supply-chain compromise** | A typosquatted or dormant-package dependency installs a hostile script | The modern version of the 2021 npm OSS attacks — inside your lockfile |
+| **Manual, late rollbacks** | A bad merge lives in prod for hours while a human checks dashboards | Downtime, lost trust, lost revenue |
+
+Linters check style. Snyk checks CVEs. Neither one protects you from failure modes **specific to AI-assisted development** — because neither one was built for it. Soloknuckle was.
+
+---
+
+## What It Is — The Product
+
+One command. Zero config. No API key. Every check runs **locally**, on **Node.js 20+**, in under two minutes.
+
+| Capability | What it means in practice | Structure |
+|---|---|---|
+| **Secret scanning** | Scans staged code and diffs for API keys, tokens, and PII before commit/push | Engine: `scanner.ts` |
+| **Command firewall** | Blocks destructive patterns — `rm -rf`, `git push --force`, `chmod 777`, `curl \| sh`, SQL drops — before they execute, with a machine-readable reason | Engine: `interceptor.ts` |
+| **Mutation testing gate** | Breaks your code on purpose (5 mutation types — operator, return, boundary, boolean, string), then checks whether your tests notice. Exposes "100% coverage, 4% bug detection" | Engine: `mutation.ts` |
+| **Context-aware test validator** | Detects same-model blindness: tests with no assertions, hardcoded values, missing mocks, real network calls | Engine: `context-validator.ts` |
+| **Caller contract checker** | Validates that test calls match real signatures — parameter counts, types, return types | Engine: `caller-contract.ts` |
+| **Flaky test detector** | Finds flaky patterns (`setTimeout`, `Math.random`, `Date`, network), re-runs to catch intermittents, and prices the maintenance cost | Engine: `flaky-detector.ts` |
+| **AI vs human telemetry** | Tracks how much of your codebase is AI-authored, per week, and flags repeat-offender patterns | Engine: `telemetry.ts` |
+| **Supply-chain sentinel** | Behavioral dependency scan: dormant packages with sudden updates, new lifecycle scripts, typosquatting patterns, untrusted publishers + `npm audit` (`quick` → `standard` → `deep`) | Engine: `supply-chain-sentinel.ts` |
+| **AI commit watcher** | Tracks AI-authored commits, quarantines risky ones, creates approval branches | Engine: `ai-watcher.ts` |
+| **Auto-rollback daemon** | Signed webhooks (Sentry, GitHub, generic) that flip a feature flag or revert the AI culprit automatically | Engine: `rollback.ts` |
+| **Feature flags** | Versioned `flags.json` + 9-tool MCP control from chat | Engine: `check.ts` + `mcp-server.ts` + `rollback.ts` |
+| **SBOM + compliance** | CycloneDX manifests + an 11-check self-audit against Soloknuckle's own standards | Engine: `sbom.ts`, `compliance.ts` |
+
+That's **13 scoring dimensions across 7 domains**, **29 test suites (494 tests)** proving the product on itself, and **11/11 compliance checks passing on the repo you're reading right now**.
+
+And the whole thing is a single surface that speaks your stack's language:
+
+```
+YOU write:    npx soloknuckle check --strict     → your CI blocks the merge
+YOUR AGENT:   soloknuckle_score / intercept      → MCP tool, native tool-calling
+YOUR SHELL:   npx soloknuckle intercept rm -rf x → exit 1, reason returned
+YOUR WATCHER: POST /webhooks/sentry              → HMAC-signed auto-revert
+YOUR GATES:   git hooks, AGENTS.md, IDE rules    → scaffolded by `init`
+```
+
+---
+
+## Why It Matters — The Value
+
+This is not a linter with a nicer logo. It is the **quality infrastructure of an AI-native engineering org**, delivered in one command:
+
+- **It catches what coverage cannot.** 100% line coverage can mean 4% bug detection. Mutation scoring (bounded: ≤10 mutations, ≤2 re-runs, <2 min CI impact) proves your tests validate *behavior*, not execution.
+- **It prices the problem.** The flaky-detector estimates the monthly cost of a flaky suite (~$360k/month at scale) so engineering leaders can defend the investment in dollars, not vibes.
+- **It protects survivability, not just style.** Secrets and destructive commands are existential failures, not style failures — name one other tool that blocks `rm -rf` *before* it runs and then tells the model *why*.
+- **It audits the machine.** AI-vs-human telemetry turns "how much of this is AI?" from a guess into a weekly, attributable number.
+- **It rolls back automatically.** A signed webhook flips a flag or reverts the AI culprit — rollback becomes a reflex, not a fire drill.
+- **It's the same standard everywhere.** CLI, CI gate, MCP tool, shell guard, and webhook all run the *same engine* on the *same machine* — so an agent and a human can never disagree on "ready to ship."
+- **It's free.** The platform-team depth runs locally, open source (ISC). The only optional costs are cloud LLM keys you bring for `audit`/`pr` — or a local Ollama at $0.
+
+**Proof it works:** this repository scores **94/100** under its own seven-domain scorecard, passes **11/11** of its own compliance checks, ships **494 tests**, and — like every release — was published only with the owner's two-factor authentication.
+
+---
+
+## One Standard. Everywhere.
+
+The embarrassing problem with most guardrail tools: the agent in your IDE, the CI pipeline, and the security script live in different worlds and silently disagree. Soloknuckle collapses them into one engine:
+
+| Surface | How it's activated | What happens |
+|---|---|---|
+| **Terminal** | `npx soloknuckle check` | Pre-flight score + gate report |
+| **CI / merge** | `npx soloknuckle check --strict` | Exit code 1 blocks the merge (four gates + four analyzers) |
+| **AI agent** | `soloknuckle_*` MCP tools | The agent *calls* the check and obeys the verdict |
+| **Git hooks** | `init`-scaffolded pre-commit / commit-msg | Secrets and dangerous commands die before commit |
+| **Shell** | `guard-install` | zsh/bash wrappers for `rm`/`git`/`chmod`/`dd`/`curl`/`wget` |
+| **Runtime** | `watch` webhook daemon | Signed events auto-revert failures in production |
 
 ---
 
@@ -68,121 +151,6 @@ Requires Node.js ≥ 20. No account, no API key, no config.
 ```
 
 Merges that fail the [hard gates](#hard-gates--strict) are blocked automatically.
-
----
-
-## What Soloknuckle Actually Does
-
-Five things, all local, all free:
-
-| Capability | What it means in practice |
-|---|---|
-| **Secret scanning** | Scans staged code and diffs for API keys, tokens, and PII before commit/push |
-| **Command firewall** | Blocks destructive patterns — `rm -rf`, `git push --force`, `chmod 777`, `curl \| sh`, SQL drops — before they execute |
-| **Mutation testing gate** | Breaks your code on purpose (5 mutation types), then checks whether your tests notice. Exposes "100% coverage, 4% bug detection" |
-| **AI vs human telemetry** | Tracks how much of your codebase is AI-authored, per week, and flags repeat-offender patterns |
-| **Hard CI gates** | Four minimum scores (security, testing, reliability, supply chain) — failing CI exits non-zero so bad merges are blocked |
-
-Everything else — SBOM, scorecard, PR descriptions, flaky detection, rollback webhooks — builds on those five.
-
----
-
-## Commands Reference
-
-### Core Commands (free, no API key)
-
-| Command | Description | Output |
-|---------|-------------|--------|
-| `npx soloknuckle init` | Scaffolds AGENTS.md, git hooks, IDE rules (only for detected editors; `--all-ides` forces all) | Files created in project |
-| `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
-| `npx soloknuckle check --fix` | Auto-fix issues (lint, tests, deps, git, CI, docs, supply chain, reliability) | Fixes applied |
-| `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
-| `npx soloknuckle score` | Project health 0–100 across 7 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 7-domain scorecard |
-| `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
-| `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards (11 checks, incl. committed-`.env` detection) | Compliance report |
-| `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
-| `npx soloknuckle ai-watch [count]` | Track AI-authored commits, quarantine risky ones, and create approval branches (`--all` watches last 10; `--mark <sha>:<ai\|human>` applies a manual override) | Quarantine/approval branch |
-| `npx soloknuckle intercept <command...>` | Evaluate a shell command against the firewall; exits 1 when destructive (`--json` for machine output). Powers the optional shell guard and raw-terminal protection | Allowed / blocked + reason |
-| `npx soloknuckle guard-install` | Install the optional shell guard into `~/.zshrc` or `~/.bashrc` so raw terminals are firewall-protected too (`--shell bash\|zsh`, `--remove` to uninstall) | Shell config updated |
-| `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories (text; `-f json` for a manifest) | Persona files or JSON |
-| `npx soloknuckle capabilities` | Command registry for AI agents (`-f text`, default, or `-f json`) | Text list or JSON |
-| `npx soloknuckle watch` | Rollback daemon + webhook listener | Daemon process |
-
-### LLM Commands (require an API key or Ollama)
-
-| Command | Description | Cost |
-|---------|-------------|------|
-| `npx soloknuckle audit` | LLM reviews your uncommitted code | Free (Ollama) or API |
-| `npx soloknuckle pr` | Auto-generates PR description from git diff | Free (Ollama) or API |
-
-On the first LLM-command run, Soloknuckle asks for a provider and key (or local Ollama). On macOS the key is stored in the **system Keychain** (`~/.soloknuckle/config.json` holds only a reference); elsewhere it falls back to a `0600`-permissioned config file. Either way it is local only, never uploaded.
-
----
-
-## 7-Domain Scorecard
-
-```
-┌────────────────────────────────────────────────────────┐
-│  7-Domain Scorecard                                    │
-│                                                        │
-│  Code Quality             85  ██████████████░░         │
-│  Testing                 100  ████████████████         │
-│  Security & Compliance   100  ████████████████         │
-│  Performance             100  ████████████████         │
-│  Reliability             100  ████████████████         │
-│  Dependencies & Supply Chain 78  ████████████░░░░      │
-│  Documentation & Visibility 91  ███████████████░       │
-│                                                        │
-│  Overall: 94/100 — Production Ready ✓                  │
-└────────────────────────────────────────────────────────┘
-```
-
-| Domain | What It Checks | Weight |
-|--------|----------------|--------|
-| **Code Quality** | Linting, formatting, TypeScript, complexity | 20% |
-| **Testing** | Unit tests, E2E tests, coverage | 20% |
-| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 20% |
-| **Performance** | Bundle size, lazy loading, optimization | 10% |
-| **Reliability** | Error tracking, retries, health checks | 10% |
-| **Dependencies & Supply Chain** | Lockfiles, pinned deps, SBOM | 10% |
-| **Documentation & Visibility** | README, CHANGELOG, LICENSE | 10% |
-
----
-
-## Hard Gates (`--strict`)
-
-| Gate | Minimum Score | Why It Matters |
-|------|---------------|----------------|
-| Security | ≥ 70 | No secrets, no critical vulnerabilities |
-| Testing | ≥ 70 | Adequate test coverage and quality |
-| Reliability | ≥ 60 | Error handling, health checks present |
-| Supply Chain | ≥ 50 | Dependencies pinned, lockfile present |
-
-If any gate fails, the command exits with code 1 — perfect for CI/CD pipelines.
-
-In addition to the four metric gates, `--strict` runs **test-quality analyzers** after the metric gates pass: *Caller Contract*, *Context Validation*, *Flaky Detection*, and *Mutation Score*. Each must also score ≥ 70 to pass. These are heavier (they spawn the project test suite) and only execute when the metric gates are green, so non-strict runs stay fast.
-
----
-
-## Unique Testing Features
-
-These four features attack failure modes that AI-assisted development introduces. They run automatically as part of `check --strict` — no extra setup. Mutation testing and flaky re-runs are bounded (≤10 mutations, ≤2 repetitions) to keep CI latency under two minutes even on large codebases.
-
-### 1. Mutation Testing Gate — the coverage-illusion killer
-
-Applies 5 mutation types (operator, return, boundary, boolean, string) to your source, then checks whether your tests catch them. 100% line coverage can mean 4% bug detection; mutation scoring proves your tests validate *behavior*, not just execution.
-
-### 2. Context-Aware Test Validator — same-model blindness detector
-
-Detects when AI-generated tests share the same blind spots as the code they test: missing mocks, real dependencies hitting the network, no assertions, hardcoded values. When one model writes both implementation and tests, wrong assumptions are wrong in the *same direction*.
-
-### 3. Caller Contract Checker — context-awareness enforcer
-
-Extracts function signatures from source and validates that test calls match reality — parameter counts, types, return types. AI tools test functions in isolation; they don't know the callers or what downstream services consume the return type.
-
-### 4. Flaky Test Detector — the maintenance-cost calculator
-
-Finds flaky patterns (`setTimeout`, `Math.random`, `Date`, network calls), runs tests repeatedly to catch intermittent failures, and estimates the monthly maintenance cost of the flakiness. A 500-test flaky suite can cost ~$360k/month in manual triage.
 
 ---
 
@@ -228,7 +196,7 @@ And `npx soloknuckle init` auto-detects your editor and scaffolds `mcp-config.js
 |------|------|-----------------|--------------|
 | `soloknuckle_score` | — | Hygiene score 0–100: overall + quality, testing, security, efficiency, accessibility, with per-dimension raw evidence | **At the start and before a commit** — never let the agent ship a score below gate |
 | `soloknuckle_intercept` | `command` | Firewall verdict `{ blocked, reason }` for destructive patterns (`rm -rf`, `chmod 777`, `curl \| sh`, `git push --force`, SQL drops…) | **Before any destructive-looking shell command** — the cheapest "no" you'll ever get |
-| `soloknuckle_secrets` | `diff` (empty = git diff) | `{ clean, violations[] }` — API keys, tokens, PII found in the diff | **Right before commit** — catches `ghp_…`, AWS keys, emails in the staged changes |
+| `soloknuckle_secrets` | `diff` (empty = git diff) | `{ clean, violations[] }` — API keys, tokens, PII found in the diff | **Right before commit** — catches staged `ghp_…`, AWS keys, emails |
 | `soloknuckle_telemetry` | — | AI vs human share of commits and lines | **After big sessions** — know exactly how much of the codebase is yours |
 | `soloknuckle_flags` | — | The current `flags.json` — which features are off/on/allowlisted | **Before enabling anything in production** |
 | `soloknuckle_flag_set` | `name`, `enabled` | Flips a flag in `flags.json` (the **only** file MCP can write) | **Rollback / gradual rollout from chat** |
@@ -270,6 +238,85 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 - **One writable file, and only one:** `flag_set` may update `flags.json`. Nothing else is ever written.
 - **A veto, not a suggestion** — `blocked: true` is machine-readable and absolute; a well-configured agent treats it as a hard stop.
 - Missing a client? It's stdio MCP (JSON-RPC 2.0, protocol `2024-11-05`) — if your agent can run a local command, it can speak to Soloknuckle.
+
+---
+
+## 7-Domain Scorecard
+
+**Measured on this repository — today:**
+
+```
+┌────────────────────────────────────────────────────────┐
+│  7-Domain Scorecard                                    │
+│                                                        │
+│  Code Quality             85  ██████████████░░         │
+│  Testing                 100  ████████████████         │
+│  Security & Compliance   100  ████████████████         │
+│  Performance             100  ████████████████         │
+│  Reliability             100  ████████████████         │
+│  Dependencies & Supply Chain 78  ████████████░░░░      │
+│  Documentation & Visibility 91  ███████████████░       │
+│                                                        │
+│  Overall: 94/100 — Production Ready ✓                  │
+└────────────────────────────────────────────────────────┘
+```
+
+| Domain | What It Checks | Weight |
+|--------|----------------|--------|
+| **Code Quality** | Linting, formatting, TypeScript, complexity | 20% |
+| **Testing** | Unit tests, E2E tests, coverage | 20% |
+| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 20% |
+| **Performance** | Bundle size, lazy loading, optimization | 10% |
+| **Reliability** | Error tracking, retries, health checks | 10% |
+| **Dependencies & Supply Chain** | Lockfiles, pinned deps, SBOM | 10% |
+| **Documentation & Visibility** | README, CHANGELOG, LICENSE | 10% |
+
+---
+
+## Hard Gates (`--strict`)
+
+| Gate | Minimum Score | Why It Matters |
+|------|---------------|----------------|
+| Security | ≥ 70 | No secrets, no critical vulnerabilities |
+| Testing | ≥ 70 | Adequate test coverage and quality |
+| Reliability | ≥ 60 | Error handling, health checks present |
+| Supply Chain | ≥ 50 | Dependencies pinned, lockfile present |
+
+If any gate fails, the command exits with code 1 — perfect for CI/CD pipelines.
+
+In addition to the four metric gates, `--strict` runs **test-quality analyzers** after the metric gates pass: *Caller Contract*, *Context Validation*, *Flaky Detection*, and *Mutation Score*. Each must also score ≥ 70 to pass. These are heavier (they spawn the project test suite) and only execute when the metric gates are green, so non-strict runs stay fast.
+
+---
+
+## Commands Reference
+
+### Core Commands (free, no API key)
+
+| Command | Description | Output |
+|---------|-------------|--------|
+| `npx soloknuckle init` | Scaffolds AGENTS.md, git hooks, IDE rules (only for detected editors; `--all-ides` forces all) | Files created in project |
+| `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
+| `npx soloknuckle check --fix` | Auto-fix issues (lint, tests, deps, git, CI, docs, supply chain, reliability) | Fixes applied |
+| `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
+| `npx soloknuckle score` | Project health 0–100 across 7 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 7-domain scorecard |
+| `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
+| `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards (11 checks, incl. committed-`.env` detection) | Compliance report |
+| `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |
+| `npx soloknuckle ai-watch [count]` | Track AI-authored commits, quarantine risky ones, and create approval branches (`--all` watches last 10; `--mark <sha>:<ai\|human>` applies a manual override) | Quarantine/approval branch |
+| `npx soloknuckle intercept <command...>` | Evaluate a shell command against the firewall; exits 1 when destructive (`--json` for machine output). Powers the optional shell guard and raw-terminal protection | Allowed / blocked + reason |
+| `npx soloknuckle guard-install` | Install the optional shell guard into `~/.zshrc` or `~/.bashrc` so raw terminals are firewall-protected too (`--shell bash\|zsh`, `--remove` to uninstall) | Shell config updated |
+| `npx soloknuckle persona <type> <folder>` | Agent rules for specific directories (text; `-f json` for a manifest) | Persona files or JSON |
+| `npx soloknuckle capabilities` | Command registry for AI agents (`-f text`, default, or `-f json`) | Text list or JSON |
+| `npx soloknuckle watch` | Rollback daemon + webhook listener | Daemon process |
+
+### LLM Commands (require an API key or Ollama)
+
+| Command | Description | Cost |
+|---------|-------------|------|
+| `npx soloknuckle audit` | LLM reviews your uncommitted code | Free (Ollama) or API |
+| `npx soloknuckle pr` | Auto-generates PR description from git diff | Free (Ollama) or API |
+
+On the first LLM-command run, Soloknuckle asks for a provider and key (or local Ollama). On macOS the key is stored in the **system Keychain** (`~/.soloknuckle/config.json` holds only a reference); elsewhere it falls back to a `0600`-permissioned config file. Either way it is local only, never uploaded.
 
 ---
 
@@ -317,7 +364,7 @@ npx soloknuckle audit      # choose OpenAI / Anthropic / Gemini / ... on first r
 
 ---
 
-## Security
+## Security & Package Integrity
 
 ### What it protects against
 
@@ -357,7 +404,7 @@ npx soloknuckle guard-install          # wraps rm/git/chmod/dd/mkfs/curl/wget in
 npx soloknuckle guard-install --remove # roll back anytime
 ```
 
-The wrapper route every invocation of those commands through `soloknuckle intercept` and refuses anything the firewall blocks. Note it adds a small per-command latency and is entirely optional — think of it as a seatbelt you fasten yourself, not an airbag deployed by Soloknuckle. All of it is opt-in and never ships to end users of your app.
+The wrapper routes every invocation of those commands through `soloknuckle intercept` and refuses anything the firewall blocks. Note it adds a small per-command latency and is entirely optional — think of it as a seatbelt you fasten yourself, not an airbag deployed by Soloknuckle. All of it is opt-in and never ships to end users of your app.
 
 ### Package integrity
 
@@ -415,6 +462,8 @@ Found a security vulnerability? Please report it privately — see [SECURITY.md]
 | **AI-assisted teams** | Don't know how much code is AI-written | Telemetry tracks AI vs human contributions per week |
 | **Open-source maintainers** | Contributors submit AI-generated code | `--strict` enforces quality gates in CI |
 | **Agencies & consultancies** | Client projects must be production-ready | 7-domain scorecard proves quality with numbers |
+| **Engineering leaders** | Can't justify spend on flakes & regressions | Dollar-priced flake costs + attributable AI-vs-human measurement |
+| **Platform/infra teams** | Agents doing damage across many repos | One local engine: CI gate, MCP tools, hooks, shell guard, webhooks |
 
 ---
 
