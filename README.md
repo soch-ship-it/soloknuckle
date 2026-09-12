@@ -8,6 +8,8 @@
 
 It is built for **AI-assisted development**: code written or reviewed by Cursor, Claude Code, Copilot, Windsurf, or any coding agent. Those tools ship fast and fail in specific, repeatable ways — leaked API keys, `rm -rf` in a shell step, tests that pass without testing anything, dependencies nobody pinned. Soloknuckle catches exactly those failure modes before they reach production.
 
+And because Soloknuckle ships a native [MCP server](#mcp-server-for-ai-agents), your agent doesn't have to *remember* any of this — it can **call the checks as tools** (`soloknuckle_secrets`, `soloknuckle_intercept`, `soloknuckle_score`…) and get a verdict before it ships anything.
+
 <p align="center">
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
@@ -186,7 +188,17 @@ Finds flaky patterns (`setTimeout`, `Math.random`, `Date`, network calls), runs 
 
 ## MCP Server for AI Agents
 
-Soloknuckle ships with a [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Desktop, Cursor, Windsurf, etc.) can call its tools directly.
+Here's the part we're most excited about — and the one that genuinely changes how your AI teammate behaves.
+
+**Soloknuckle is a hygiene layer that speaks the agents' native protocol.** Instead of hoping your coding agent *remembers* to be careful, you hand it direct, callable **tools** it must use before it ships. The agent doesn't read a blog post about secret scanning — it *calls* `soloknuckle_secrets` and gets a verdict. It doesn't guess whether `rm -rf` is safe — it calls `soloknuckle_intercept` and the firewall answers.
+
+Through the [Model Context Protocol](https://modelcontextprotocol.io), every flagship Soloknuckle capability becomes a first-class tool any MCP client can invoke: Claude Desktop, Cursor, Windsurf, GitHub Copilot, Codex, Gemini CLI, Replit Agent, Lovable, and every agent that speaks stdio MCP.
+
+No accounts. No API keys. No server to host. One `npx`, one JSON block, done — and it all runs locally on your machine.
+
+### Install in 30 seconds
+
+Add this block to your MCP client's config (Claude Desktop → *Settings → Developer → Edit Config*; Cursor → *Settings → MCP*):
 
 ```json
 {
@@ -199,30 +211,65 @@ Soloknuckle ships with a [Model Context Protocol](https://modelcontextprotocol.i
 }
 ```
 
-### Available Tools
+That spawns the **exact same engine as the terminal CLI** — same scorer, same scanner, same firewall. An agent and a human can never disagree on what "ready to ship" means, because they read the same numbers off the same machine.
 
-| Tool | Description |
-|------|-------------|
-| `soloknuckle_score` | Project health score (0–100) with per-domain breakdown |
-| `soloknuckle_telemetry` | AI vs human contribution telemetry |
-| `soloknuckle_intercept` | Check if a shell command is safe or destructive |
-| `soloknuckle_secrets` | Scan a git diff for secrets, API keys, and PII |
-| `soloknuckle_flags` | Read all feature flags and their state |
-| `soloknuckle_flag_set` | Enable or disable a feature flag |
-| `soloknuckle_supply_chain_sentinel` | Scan dependencies for typosquats and hostile packages |
-| `soloknuckle_suggest` | AI-powered improvement suggestions |
-| `soloknuckle_branches` | List local git branches |
+Prefer a locally installed binary (fastest startup, fully offline):
 
-### Example: agent checks the score before coding
+```bash
+npm install -g soloknuckle
+# then use:  "command": "soloknuckle-mcp"
+```
+
+And `npx soloknuckle init` auto-detects your editor and scaffolds `mcp-config.json` + `SKILL.md` for the agents you actually use — including a universal prompt that tells the agent to read `AGENTS.md` and run `npx soloknuckle check` before it finishes any task.
+
+### The 9 tools your agent gets
+
+| Tool | Args | What it returns | Call it when |
+|------|------|-----------------|--------------|
+| `soloknuckle_score` | — | Hygiene score 0–100: overall + quality, testing, security, efficiency, accessibility, with per-dimension raw evidence | **At the start and before a commit** — never let the agent ship a score below gate |
+| `soloknuckle_intercept` | `command` | Firewall verdict `{ blocked, reason }` for destructive patterns (`rm -rf`, `chmod 777`, `curl \| sh`, `git push --force`, SQL drops…) | **Before any destructive-looking shell command** — the cheapest "no" you'll ever get |
+| `soloknuckle_secrets` | `diff` (empty = git diff) | `{ clean, violations[] }` — API keys, tokens, PII found in the diff | **Right before commit** — catches `ghp_…`, AWS keys, emails in the staged changes |
+| `soloknuckle_telemetry` | — | AI vs human share of commits and lines | **After big sessions** — know exactly how much of the codebase is yours |
+| `soloknuckle_flags` | — | The current `flags.json` — which features are off/on/allowlisted | **Before enabling anything in production** |
+| `soloknuckle_flag_set` | `name`, `enabled` | Flips a flag in `flags.json` (the **only** file MCP can write) | **Rollback / gradual rollout from chat** |
+| `soloknuckle_supply_chain_sentinel` | `depth: quick\|standard\|deep` | Behavioral supply-chain scan — dormant packages, lifecycle scripts, typosquats, untrusted publishers + `npm audit` | **Before adding any dependency** |
+| `soloknuckle_suggest` | — | An LLM-generated improvement plan (requires a configured provider) | **After a low score** — close the loop |
+| `soloknuckle_branches` | — | Local branches + which one is checked out | **Orientation** — the agent always knows where it is |
+
+Every tool answers in clean, actionable JSON. Verdicts, not vibes.
+
+### Watch it work — a real session
+
+Here's what your agent actually looks like when Soloknuckle is wired in. You can replay this exact conversation in Claude Desktop today:
 
 ```
-Agent:  soloknuckle_score
-Server: { "overall": 82, "quality": 90, "testing": 100, "security": 70, ... }
-Agent:  "Security is low. Let me check for secrets..."
-Agent:  soloknuckle_secrets { "diff": "" }
-Server: { "clean": false, "violations": ["Line 5: Potential secret detected"] }
-Agent:  "Found a secret. Fixing it before proceeding."
+Agent:  "Cleaning up the temp directory now."
+Agent:  → soloknuckle_intercept { "command": "rm -rf /tmp/build" }
+Server: → { "blocked": true, "reason": "Blocked: 'rm -rf' matches destructive pattern" }
+Agent:  "Blocked — fair. Let me do the same thing the safe way instead."
+Agent:  → soloknuckle_intercept { "command": "find /tmp/build -type f -delete && rm -r /tmp/build" }
+Server: → { "blocked": false, "reason": null }
+Agent:  "Approved. Now checking where I stand."
+Agent:  → soloknuckle_score
+Server: → { "overall": 94, "quality": 85, "testing": 100, "security": 100, ... }
+Agent:  "Green. Let me look at what's actually staged before committing."
+Agent:  → soloknuckle_secrets { "diff": "" }
+Server: → { "clean": false, "violations": ["Line 5: Potential secret (API key pattern) detected"] }
+Agent:  "Found a leaked credential in the staged diff. Rotating it and scrubbing the file before commit."
+Agent:  → soloknuckle_secrets { "diff": "" }
+Server: → { "clean": true, "violations": [] }
+Agent:  "Clean. Committing."
 ```
+
+Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *contract*: the agent calls the tool, and the tool tells it no.
+
+### Security & limits (honest section)
+
+- **Runs in your project directory only** — reads your git state, `package.json`, lockfiles, `flags.json`.
+- **Ships zero bytes to the internet** unless you explicitly call `soloknuckle_suggest` with a configured cloud LLM. Intercept, secrets, score, telemetry, flags, sentinel: all local.
+- **One writable file, and only one:** `flag_set` may update `flags.json`. Nothing else is ever written.
+- **A veto, not a suggestion** — `blocked: true` is machine-readable and absolute; a well-configured agent treats it as a hard stop.
+- Missing a client? It's stdio MCP (JSON-RPC 2.0, protocol `2024-11-05`) — if your agent can run a local command, it can speak to Soloknuckle.
 
 ---
 
