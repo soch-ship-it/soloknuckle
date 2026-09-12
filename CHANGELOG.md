@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **macOS Keychain storage** — prompt-saved LLM API keys are stored in Keychain (`apiKeyRef` marker in config) with a permission-safe fallback; `resolveApiKey()` reads env → stored config → keychain
 - **`ai-watch --mark <sha>:ai|human`** — manual overrides in `.soloknuckle/ai-overrides.json`
 - **Shared secret scanner** — `scanTextForSecrets` line classifier reused by the compliance hardcoded-secret check over `src/*` and root `.env*`
-- **npm provenance** — releases are published with signed provenance attestations
+- **2FA-protected publishing** — every npm publish requires the owner's two-factor authentication (security key / Touch ID); no unattended CI credential can publish
 
 ### Fixed
 

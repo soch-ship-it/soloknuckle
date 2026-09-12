@@ -120,18 +120,19 @@ On the first LLM-command run, Soloknuckle asks for a provider and key (or local 
 ## 7-Domain Scorecard
 
 ```
-┌─────────────────────────────────────────┐
-│  7-Domain Scorecard                     │
-│  Code Quality        ████████░░  85/100 │
-│  Testing             ██████████  100/100│
-│  Security            ███████░░░  72/100 │
-│  Performance         ████████░░  88/100 │
-│  Reliability         ███████░░░  78/100 │
-│  Supply Chain        ██████░░░░  65/100 │
-│  Documentation       ███████░░░  75/100 │
-│                                         │
-│  Overall: 82/100 — Production Ready ✓   │
-└─────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│  7-Domain Scorecard                                    │
+│                                                        │
+│  Code Quality             85  ██████████████░░         │
+│  Testing                 100  ████████████████         │
+│  Security & Compliance   100  ████████████████         │
+│  Performance             100  ████████████████         │
+│  Reliability             100  ████████████████         │
+│  Dependencies & Supply Chain 78  ████████████░░░░      │
+│  Documentation & Visibility 91  ███████████████░       │
+│                                                        │
+│  Overall: 94/100 — Production Ready ✓                  │
+└────────────────────────────────────────────────────────┘
 ```
 
 | Domain | What It Checks | Weight |
@@ -185,7 +186,7 @@ Finds flaky patterns (`setTimeout`, `Math.random`, `Date`, network calls), runs 
 
 ## MCP Server for AI Agents
 
-Soloknuckle ships with an [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Desktop, Cursor, Windsurf, etc.) can call its tools directly.
+Soloknuckle ships with a [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Desktop, Cursor, Windsurf, etc.) can call its tools directly.
 
 ```json
 {
@@ -315,9 +316,9 @@ The wrapper route every invocation of those commands through `soloknuckle interc
 
 | Protection | How It Works |
 |------------|--------------|
-| **npm provenance** | Releases are published by GitHub Actions with [npm provenance](https://docs.npmjs.com/generating-provenance-statements) — every artifact is cryptographically tied to the source commit and workflow |
+| **2FA-protected publishing** | Every npm publish requires the owner's two-factor authentication (security key / Touch ID). No unattended credential in CI can publish |
 | **Verifiable signatures** | `npm audit signatures` verifies registry signatures on every install |
-| **Tag-gated releases** | Publishing only happens from `v*` tags that match `package.json`, after the full test gate passes |
+| **Tag-gated releases** | Releases are cut from `v*` tags that match `package.json`, after the full test gate passes; publishing to npm additionally requires owner 2FA |
 
 ### Install-time hardening (recommended for consumers)
 
@@ -342,7 +343,7 @@ npm audit                # check for known vulnerabilities
 
 ### CI
 
-GitHub Actions runs on every PR: security audit, typecheck, lint, and the test matrix on Node 22 and 24. Release publishing uses a repo secret that is never exposed to forks, and npm provenance ties every artifact to this repository.
+GitHub Actions runs on every PR: security audit, typecheck, lint, and the test matrix on Node 22 and 24. Releases are gated in CI (tests, typecheck, lint) and the binaries are attached by the release workflow; publishing to npm is a deliberate manual step that requires the owner's 2FA, so no publish credential ever lives in CI.
 
 ### Responsible disclosure
 
@@ -464,7 +465,7 @@ npm run test -- --coverage    # with coverage report
 
 **Current status:** 494 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
 
-Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before anything touches npm.
+Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before any release is cut.
 
 ---
 

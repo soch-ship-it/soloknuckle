@@ -82,11 +82,11 @@ npm audit
 
 ## Supply Chain Security
 
-- Package provenance via npm `--provenance` flag
+- Publishing to npm requires owner two-factor authentication (security key / Touch ID)
 - CI runs on GitHub Actions with pinned action versions
 - No automated publishing — manual release only
 - `npm audit signatures` verifies registry signatures
 
 ## Contact
 
-For security inquiries, contact: [INSERT YOUR EMAIL HERE]
+For security inquiries, report via GitHub Private Vulnerability Reporting: https://github.com/soch-ship-it/soloknuckle/security/advisories/new

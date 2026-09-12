@@ -43,5 +43,6 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
-  # Tag releases (npm publish + GitHub release binaries) live in release.yml.
+  # Tag releases (GitHub release binaries) live in release.yml; npm publishing
+  # is a manual step protected by the owner's 2FA, so it is intentionally absent here.
   # This workflow only tests pushes and PRs so the two never race on a tag.
