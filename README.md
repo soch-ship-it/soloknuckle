@@ -14,9 +14,15 @@
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
 </p>
 
-**Soloknuckle is the production hygiene layer for the era where most new code is written by AI.** It scans secrets before they ship, fires a firewall at destructive commands before they destroy, proves your tests actually *test* something, and gives you hard, CI-enforceable gates so bad code never reaches production — from a CLI, from a CI pipeline, and natively from inside any AI coding agent via MCP.
+**Every security tool tells *people* to be more careful. Soloknuckle is the one that makes the *AI writing your code* be careful — not by asking, but by handing it a veto it cannot argue with.**
 
-The depth you'd expect from a platform team that costs tens of thousands a year, running as one free, local, open-source command.
+Its moat isn't one scanner; it's a system purpose-built for the era it serves:
+
+- **It targets AI's exact failure modes — the ones linters and CVE scanners were never designed for.** Same-model blindness (one model writes the code *and* the tests that rubber-stamp it), truthy coverage (100% line coverage that detects 4% of bugs), leaked credentials inside agent-generated diffs, `rm -rf` in a "helpful" shell step, a $-priced flaky-suite tax nobody else even measures. These are the failure patterns of AI-assisted development, and they're what Soloknuckle is engineered around.
+- **It turns guardrails into a contract instead of a suggestion.** Every check returns a machine-readable verdict the model must obey: `soloknuckle_secrets` → `{ clean: false, violations: [...] }`, `soloknuckle_intercept` → `{ blocked: true, reason }`. The agent doesn't *remember* to check — it *calls a tool* and gets an answer it can't talk its way out of. That is a moat: docs go stale, enforced call-sites don't.
+- **One engine, every surface — one source of truth.** The same firewall, scanner, and scorer run in your CLI, your CI gate, your git hooks, your shell, your webhook rollback daemon, and your agent's MCP tools. "Ready to ship" means one thing on every machine, verified locally, never phoning home.
+
+And it ships the way a moat is meant to ship: **free, open source, zero config, under two minutes** — platform-team-grade infrastructure as a single `npx soloknuckle init`, proven on itself (494 tests, 94/100 self-score, 11/11 self-compliance).
 
 ---
 
