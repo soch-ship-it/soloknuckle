@@ -39,8 +39,8 @@ export function printGateReport(report: GateReport): void {
   console.log('');
 }
 
-export function printSevenDomainScorecard(scorecard: SevenDomainScorecard): void {
-  console.log(chalk.bold.cyan('  📊  7-Domain Scorecard'));
+export function printEightDomainScorecard(scorecard: SevenDomainScorecard): void {
+  console.log(chalk.bold.cyan(`  📊  ${scorecard.domains.length}-Domain Scorecard`));
   console.log(chalk.dim('  ' + '─'.repeat(40)));
 
   const statusColors: Record<string, typeof chalk.green> = {
@@ -73,3 +73,7 @@ function progressBar(score: number, width = 16): string {
   const color = score >= 80 ? chalk.green : score >= 50 ? chalk.yellow : chalk.red;
   return color('█'.repeat(filled)) + chalk.dim('░'.repeat(empty));
 }
+
+// Backward-compatible aliases
+export const printSevenDomainScorecard = printEightDomainScorecard;
+export const printDomainScorecard = printEightDomainScorecard;

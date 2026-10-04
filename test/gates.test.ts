@@ -42,10 +42,10 @@ function makeMetrics(overrides: Partial<Record<string, number>> = {}): ScoreMetr
 
 describe('evaluateGates', () => {
   it('returns passed: true when all gates pass', () => {
-    const metrics = makeMetrics({ security: 100, testing: 100, reliability: 100, supplyChain: 100 });
+    const metrics = makeMetrics({ security: 100, testing: 100, accessibility: 100, reliability: 100, supplyChain: 100 });
     const report = evaluateGates(metrics);
     expect(report.gateResult.passed).toBe(true);
-    expect(report.gateResult.gates).toHaveLength(4);
+    expect(report.gateResult.gates).toHaveLength(5);
   });
 
   it('returns passed: false when security < 70', () => {
@@ -55,6 +55,15 @@ describe('evaluateGates', () => {
     const secGate = report.gateResult.gates.find(g => g.name === 'security');
     expect(secGate?.passed).toBe(false);
     expect(secGate?.score).toBe(50);
+  });
+
+  it('returns passed: false when accessibility < 70', () => {
+    const metrics = makeMetrics({ accessibility: 65 });
+    const report = evaluateGates(metrics);
+    expect(report.gateResult.passed).toBe(false);
+    const a11yGate = report.gateResult.gates.find(g => g.name === 'accessibility');
+    expect(a11yGate?.passed).toBe(false);
+    expect(a11yGate?.score).toBe(65);
   });
 
   it('returns passed: false when testing < 70', () => {
@@ -81,25 +90,25 @@ describe('evaluateGates', () => {
     expect(scGate?.passed).toBe(false);
   });
 
-  it('returns the scorecard with 7 domains', () => {
+  it('returns the scorecard with 8 domains', () => {
     const metrics = makeMetrics();
     const report = evaluateGates(metrics);
-    expect(report.scorecard.domains).toHaveLength(7);
+    expect(report.scorecard.domains).toHaveLength(8);
     expect(report.scorecard.overallScore).toBeGreaterThanOrEqual(0);
     expect(report.scorecard.overallScore).toBeLessThanOrEqual(100);
   });
 
-  it('weights the overall score by the documented 20/20/20/10/10/10/10 split', () => {
-    // Code Quality(4) + Testing(4) + Security(4) carry 20% each; the rest 10%.
+  it('weights the overall score correctly across domains', () => {
     const metrics = makeMetrics({
-      quality: 100, efficiency: 100, // Code Quality = 100
-      testing: 0,                    // Testing = 0
-      security: 0, accessibility: 0, // Security = 0
+      quality: 100, efficiency: 100, // Code Quality = 100 (weight: 4)
+      testing: 0,                    // Testing = 0 (weight: 4)
+      security: 0,                   // Security = 0 (weight: 2)
+      accessibility: 0,              // Accessibility = 0 (weight: 2)
       performance: 0, reliability: 0, dependencies: 0, supplyChain: 0,
       documentation: 0, gitHygiene: 0, ciPipeline: 0, featureFlags: 0,
     });
     const report = evaluateGates(metrics);
-    // weighted = (100*4 + 0*4 + 0*4 + 0*2 + 0*2 + 0*2 + 0*2) / 20 = 20
+    // weighted = (100*4 + 0) / 20 = 20
     expect(report.scorecard.overallScore).toBe(20);
   });
 });
@@ -116,13 +125,14 @@ describe('printGateReport', () => {
   });
 
   it('prints gate results', () => {
-    const metrics = makeMetrics({ security: 80, testing: 80, reliability: 70, supplyChain: 60 });
+    const metrics = makeMetrics({ security: 80, testing: 80, accessibility: 85, reliability: 70, supplyChain: 60 });
     const report = evaluateGates(metrics);
     printGateReport(report);
     const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
     expect(output).toContain('Hard Gate Results');
     expect(output).toContain('security');
     expect(output).toContain('testing');
+    expect(output).toContain('accessibility');
   });
 
   it('prints pass message when all gates pass', () => {
@@ -153,18 +163,12 @@ describe('printSevenDomainScorecard', () => {
     consoleSpy.mockRestore();
   });
 
-  it('prints 7-domain scorecard header', () => {
+  it('prints domain scorecard header', () => {
     const metrics = makeMetrics();
-    const scorecard = {
-      domains: [],
-      overallScore: 100,
-      overallStatus: 'production-ready' as const,
-    };
-    // Use evaluateGates to get a proper scorecard
     const report = evaluateGates(metrics);
     printSevenDomainScorecard(report.scorecard);
     const output = consoleSpy.mock.calls.map(c => c[0]).join('\n');
-    expect(output).toContain('7-Domain Scorecard');
+    expect(output).toContain('Domain Scorecard');
   });
 
   it('prints overall score', () => {
@@ -176,7 +180,7 @@ describe('printSevenDomainScorecard', () => {
     expect(output).toContain('/100');
   });
 
-  it('prints all 7 domain names', () => {
+  it('prints all 8 domain names including dedicated Accessibility & Usability', () => {
     const metrics = makeMetrics();
     const report = evaluateGates(metrics);
     printSevenDomainScorecard(report.scorecard);
@@ -184,6 +188,7 @@ describe('printSevenDomainScorecard', () => {
     expect(output).toContain('Code Quality');
     expect(output).toContain('Testing');
     expect(output).toContain('Security & Compliance');
+    expect(output).toContain('Accessibility & Usability');
     expect(output).toContain('Performance');
     expect(output).toContain('Reliability');
     expect(output).toContain('Dependencies & Supply Chain');

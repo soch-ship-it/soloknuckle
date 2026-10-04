@@ -5,7 +5,7 @@ import { getErrorMessage, domainStatus, avg } from './helpers';
 import type { ScoreMetrics, HygieneDimension } from './types';
 import { DEFAULT_WEIGHTS, WEIGHTS_FILE } from './types';
 import { getQualityScore, getTestingScore, getSecurityScore, getEfficiencyScore, getAccessibilityScore, getDependencyScore, getDocumentationScore, getGitHygieneScore, getCIPipelineScore, getFeatureFlagsScore, getPerformanceScore, getReliabilityScore, getSupplyChainScore } from './dimensions';
-import type { DimensionScore, DomainScorecard, SevenDomainScorecard } from './types';
+import type { DimensionScore, DomainScorecard, EightDomainScorecard, SevenDomainScorecard } from './types';
 
 export function loadWeights(): Record<HygieneDimension, number> {
   const weightsPath = path.join(process.cwd(), WEIGHTS_FILE);
@@ -28,12 +28,13 @@ export function loadWeights(): Record<HygieneDimension, number> {
 
 // Maps each domain to the dimensions that make it up. The domain's weight is
 // the sum of its dimensions' weights, so the overall scorecard average honors
-// the documented 20/20/20/10/10/10/10 split while staying consistent with the
+// the dedicated domain split while staying consistent with the
 // per-dimension overall score computed by calculateMetrics().
 const DOMAIN_TO_DIMENSIONS: Record<string, HygieneDimension[]> = {
   'Code Quality': ['quality', 'efficiency'],
   'Testing': ['testing'],
-  'Security & Compliance': ['security', 'accessibility'],
+  'Security & Compliance': ['security'],
+  'Accessibility & Usability': ['accessibility'],
   'Performance': ['performance'],
   'Reliability': ['reliability'],
   'Dependencies & Supply Chain': ['dependencies', 'supplyChain'],
@@ -45,7 +46,7 @@ function domainWeight(name: string, weights: Record<HygieneDimension, number>): 
   return dims.reduce((sum, d) => sum + (weights[d] ?? 0), 0);
 }
 
-export function calculateSevenDomainScorecard(metrics: ScoreMetrics): SevenDomainScorecard {
+export function calculateEightDomainScorecard(metrics: ScoreMetrics): EightDomainScorecard {
   const weights = metrics.weights && Object.keys(metrics.weights).length > 0
     ? metrics.weights
     : { ...DEFAULT_WEIGHTS };
@@ -68,12 +69,19 @@ export function calculateSevenDomainScorecard(metrics: ScoreMetrics): SevenDomai
     },
     {
       name: 'Security & Compliance',
-      score: avg([metrics.security.score, metrics.accessibility.score]),
+      score: metrics.security.score,
       dimensions: [
         { name: 'Security', score: metrics.security.score },
+      ],
+      status: domainStatus(metrics.security.score),
+    },
+    {
+      name: 'Accessibility & Usability',
+      score: metrics.accessibility.score,
+      dimensions: [
         { name: 'Accessibility', score: metrics.accessibility.score },
       ],
-      status: domainStatus(avg([metrics.security.score, metrics.accessibility.score])),
+      status: domainStatus(metrics.accessibility.score),
     },
     {
       name: 'Performance',
@@ -126,6 +134,10 @@ export function calculateSevenDomainScorecard(metrics: ScoreMetrics): SevenDomai
   };
 }
 
+// Backward-compatible aliases
+export const calculateSevenDomainScorecard = calculateEightDomainScorecard;
+export const calculateDomainScorecard = calculateEightDomainScorecard;
+
 // ─── Hard Gate Helpers ──────────────────────────────────────────────────────
 
 export interface GateResult {
@@ -137,6 +149,7 @@ export function evaluateHardGates(metrics: ScoreMetrics): GateResult {
   const gates = [
     { name: 'security', passed: metrics.security.score >= 70, score: metrics.security.score, threshold: 70 },
     { name: 'testing', passed: metrics.testing.score >= 70, score: metrics.testing.score, threshold: 70 },
+    { name: 'accessibility', passed: metrics.accessibility.score >= 70, score: metrics.accessibility.score, threshold: 70 },
     { name: 'reliability', passed: metrics.reliability.score >= 60, score: metrics.reliability.score, threshold: 60 },
     { name: 'supplyChain', passed: metrics.supplyChain.score >= 50, score: metrics.supplyChain.score, threshold: 50 },
   ];
