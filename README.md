@@ -8,7 +8,7 @@
   <a href="https://github.com/soch-ship-it/soloknuckle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/soch-ship-it/soloknuckle/ci.yml?branch=main&label=CI" alt="CI status"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/v/soloknuckle" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/soloknuckle"><img src="https://img.shields.io/npm/dm/soloknuckle" alt="npm downloads"></a>
-  <img src="https://img.shields.io/badge/tests-494%20passing-brightgreen" alt="494 tests passing">
+  <img src="https://img.shields.io/badge/tests-511%20passing-brightgreen" alt="511 tests passing">
   <img src="https://img.shields.io/badge/coverage-87%25%20lines-success" alt="coverage">
   <a href="./LICENSE"><img src="https://img.shields.io/npm/l/soloknuckle" alt="License: ISC"></a>
   <img src="https://img.shields.io/node/v/soloknuckle" alt="Node.js >= 20">
@@ -22,7 +22,7 @@ Its moat isn't one scanner; it's a system purpose-built for the era it serves:
 - **It turns guardrails into a contract instead of a suggestion.** Every check returns a machine-readable verdict the model must obey: `soloknuckle_secrets` → `{ clean: false, violations: [...] }`, `soloknuckle_intercept` → `{ blocked: true, reason }`. The agent doesn't *remember* to check — it *calls a tool* and gets an answer it can't talk its way out of. That is a moat: docs go stale, enforced call-sites don't.
 - **One engine, every surface — one source of truth.** The same firewall, scanner, and scorer run in your CLI, your CI gate, your git hooks, your shell, your webhook rollback daemon, and your agent's MCP tools. "Ready to ship" means one thing on every machine, verified locally, never phoning home.
 
-And it ships the way a moat is meant to ship: **free, open source, zero config, under two minutes** — platform-team-grade infrastructure as a single `npx soloknuckle init`, proven on itself (494 tests, 94/100 self-score, 11/11 self-compliance).
+And it ships the way a moat is meant to ship: **free, open source, zero config, under two minutes** — platform-team-grade infrastructure as a single `npx soloknuckle init`, proven on itself (511 tests, 95/100 self-score, 11/11 self-compliance).
 
 ---
 
@@ -553,7 +553,7 @@ soloknuckle/
 │   ├── personas.ts           # Per-directory bounded-context rules
 │   ├── pr-enforcer.ts        # Strict PR description generator
 │   └── budget.ts             # Agent budget tracking
-├── test/                     # 29 test suites, 494 tests
+├── test/                     # 29 test suites, 511 tests
 ├── git-hooks/                # pre-commit, commit-msg hook scripts
 ├── templates/                # Feature flag templates + example flags.json
 ├── scripts/                  # Setup + asset generation scripts
@@ -568,11 +568,11 @@ soloknuckle/
 ## Testing
 
 ```bash
-npm test                      # run all 494 tests
+npm test                      # run all 511 tests
 npm run test -- --coverage    # with coverage report
 ```
 
-**Current status:** 494 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
+**Current status:** 511 tests across 29 suites — 87.3% lines, 89.7% functions, 75.9% branches covered.
 
 Every release is gated: the [release workflow](.github/workflows/release.yml) runs the full suite, typecheck, and lint before any release is cut.
 
