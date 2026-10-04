@@ -214,7 +214,23 @@ const diff = '+ const api_key = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6";';
     expect(violations).toHaveLength(1);
     expect(violations[0]).toContain('secret/API key');
   });
+
+  it('should detect database URI with credentials', () => {
+    const diff = '+ const uri = "' + 'postgres://admin:' + 'supersecretpass@127.0.0.1:5432/production";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
+
+
+  it('should detect PyPI upload tokens', () => {
+    const diff = '+ const token = "' + 'pypi-AgEIcHlwaS5vcmc' + 'CJDMzM2EwNjlkLTNhNTQtNDYwZi1hMTdiLTU3ZjIxZDBiM2RhYQA";';
+    const violations = scanDiffForSecretsAndPII(diff);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toContain('secret/API key');
+  });
 });
+
 
 describe('scanTextForSecrets', () => {
   it('flags plaintext across the whole text, not just diff additions', () => {
@@ -256,3 +272,37 @@ describe('scanTextForSecrets', () => {
     expect(violations).toHaveLength(0);
   });
 });
+
+describe('scanCodeForSecurityVulnerabilities (SAST)', () => {
+  it('detects eval and dynamic function constructors', async () => {
+    const { scanCodeForSecurityVulnerabilities } = await import('../cli/scanner');
+    const code = 'const res = eval(userInput);\nconst fn = new Function("a", "return a");';
+    const issues = scanCodeForSecurityVulnerabilities(code, 'app.ts');
+    expect(issues.some(i => i.rule === 'no-eval')).toBe(true);
+    expect(issues.some(i => i.rule === 'no-new-func')).toBe(true);
+  });
+
+  it('detects unsanitized dangerouslySetInnerHTML and raw innerHTML', async () => {
+    const { scanCodeForSecurityVulnerabilities } = await import('../cli/scanner');
+    const code = '<div dangerouslySetInnerHTML={{ __html: userHtml }} />;\nel.innerHTML = rawString;';
+    const issues = scanCodeForSecurityVulnerabilities(code, 'component.tsx');
+    expect(issues.some(i => i.rule === 'xss-dangerously-set-inner-html')).toBe(true);
+    expect(issues.some(i => i.rule === 'no-unsafe-innerhtml')).toBe(true);
+  });
+
+  it('detects weak cryptography and disabled TLS verification', async () => {
+    const { scanCodeForSecurityVulnerabilities } = await import('../cli/scanner');
+    const code = 'const cipher = crypto.createCipher("des", key);\nconst agent = new https.Agent({ rejectUnauthorized: false });';
+    const issues = scanCodeForSecurityVulnerabilities(code, 'service.ts');
+    expect(issues.some(i => i.rule === 'no-weak-crypto')).toBe(true);
+    expect(issues.some(i => i.rule === 'no-disabled-tls')).toBe(true);
+  });
+
+  it('ignores comments and sanitized code', async () => {
+    const { scanCodeForSecurityVulnerabilities } = await import('../cli/scanner');
+    const code = '// eval(test)\n<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />\nel.innerHTML = sanitize(html); // sanitize';
+    const issues = scanCodeForSecurityVulnerabilities(code, 'safe.tsx');
+    expect(issues).toHaveLength(0);
+  });
+});
+

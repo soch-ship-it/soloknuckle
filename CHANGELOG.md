@@ -4,11 +4,22 @@ All notable changes to Soloknuckle will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-10-04
+
+### Added
+
+- **Deepened Static Application Security Testing (SAST)** — static vulnerability rules engine detecting `eval()`, `new Function()`, dynamic `child_process.exec` command interpolation, unsanitized `dangerouslySetInnerHTML`, raw `.innerHTML =` assignments, weak crypto algorithms (DES/RC4/MD5/SHA1), and disabled TLS verification (`rejectUnauthorized: false`).
+- **Expanded Secret Detection Patterns** — added regex coverage for database URIs with embedded cleartext credentials (`postgres://`, `mongodb://`, `mysql://`, `redis://`), PyPI upload tokens, Slack workspace tokens, Twilio account tokens, and PKCS8/OpenSSL private keys.
+- **Cognitive & Cyclomatic Complexity Analysis** — advanced branching complexity evaluator detecting decision density (> 45 branches), true block nesting depth (> 4 levels), and monolithic file structures.
+- **Async Loop Bottleneck Scanner** — static detection of serial `await` expressions executed inside sequential `for` and `while` loops, prompting concurrency optimization via `Promise.all` or worker queues.
+- **Enhanced Code Quality & Smell Diagnostics** — added static inspection for leftover `debugger;` statements in production source trees, empty `catch (e) {}` blocks that swallow runtime errors, and excessive `@ts-ignore` / `@ts-nocheck` suppressions.
+
 ## [1.2.0] - 2026-10-04
 
 ### Added
 
 - **8-Domain Scorecard Architecture** — elevated Accessibility & Usability to its own first-class dedicated top-level domain with 10% weight parity alongside Security, Performance, and Reliability
+
 - **Comprehensive WCAG 2.1 AA Engine** — static analysis checking for missing `alt` text, placeholder `alt` values, form `<input>` labels/IDs, accessible `<button>` names, ambiguous links, positive `tabIndex` anti-patterns, non-interactive `onClick` handlers, viewport zoom restrictions, and missing HTML `lang` attributes
 - **Accessibility Hard Gate** — added mandatory `accessibility >= 70` gate in strict mode (`--strict`) to block inaccessible commits before they reach production
 
