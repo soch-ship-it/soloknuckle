@@ -304,6 +304,69 @@ describe('getAccessibilityScore', () => {
     expect(result.score).toBe(55);
   });
 
+  it('detects uninformative placeholder alt text (WCAG 1.1.1)', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'Profile.tsx'), '<img src="avatar.png" alt="photo" />\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 1.1.1]');
+    expect(result.rawOutput).toContain('Uninformative alt text');
+  });
+
+  it('detects form inputs lacking label or id (WCAG 1.3.1)', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'Form.tsx'), '<input type="email" name="user_email" />\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 1.3.1]');
+  });
+
+  it('detects ambiguous link text (WCAG 2.4.4)', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'Nav.tsx'), '<a href="/more">Click Here</a>\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 2.4.4]');
+    expect(result.rawOutput).toContain('Ambiguous link text');
+  });
+
+  it('detects click handlers on non-interactive elements without role or tabIndex (WCAG 2.1.1)', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'Card.tsx'), '<div onClick={handleClick}>Clickable Card</div>\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 2.1.1]');
+  });
+
+  it('detects positive tabIndex anti-pattern (WCAG 2.4.3)', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'List.tsx'), '<button aria-label="Item" tabIndex={2}>Item</button>\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 2.4.3]');
+  });
+
+  it('detects viewport zooming disabled (WCAG 1.4.4)', () => {
+    fs.writeFileSync(path.join(tmpDir, 'index.html'), '<meta name="viewport" content="width=device-width, user-scalable=no">\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 1.4.4]');
+  });
+
+  it('detects missing lang attribute on html element (WCAG 3.1.1)', () => {
+    fs.writeFileSync(path.join(tmpDir, 'index.html'), '<html><head></head><body></body></html>\n');
+
+    const result = getAccessibilityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('[WCAG 3.1.1]');
+  });
+
   it('floors at 0 with many violations', () => {
     fs.mkdirSync(path.join(tmpDir, 'ui', 'src'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'ui', 'src', 'App.jsx'),

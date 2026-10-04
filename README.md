@@ -34,7 +34,7 @@ And it ships the way a moat is meant to ship: **free, open source, zero config, 
 - [One Standard. Everywhere.](#one-standard-everywhere)
 - [Quick Start](#quick-start)
 - [MCP Server for AI Agents](#mcp-server-for-ai-agents)
-- [7-Domain Scorecard](#7-domain-scorecard)
+- [8-Domain Scorecard](#8-domain-scorecard)
 - [Hard Gates (`--strict`)](#hard-gates--strict)
 - [Commands Reference](#commands-reference)
 - [IDE Integration](#ide-integration)
@@ -247,23 +247,24 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 
 ---
 
-## 7-Domain Scorecard
+## 8-Domain Scorecard
 
 **Measured on this repository — today:**
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  7-Domain Scorecard                                    │
+│  8-Domain Scorecard                                    │
 │                                                        │
 │  Code Quality             85  ██████████████░░         │
 │  Testing                 100  ████████████████         │
 │  Security & Compliance   100  ████████████████         │
+│  Accessibility & Usability 100  ████████████████       │
 │  Performance             100  ████████████████         │
 │  Reliability             100  ████████████████         │
 │  Dependencies & Supply Chain 78  ████████████░░░░      │
 │  Documentation & Visibility 91  ███████████████░       │
 │                                                        │
-│  Overall: 94/100 — Production Ready ✓                  │
+│  Overall: 95/100 — Production Ready ✓                  │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -271,7 +272,8 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 |--------|----------------|--------|
 | **Code Quality** | Linting, formatting, TypeScript, complexity | 20% |
 | **Testing** | Unit tests, E2E tests, coverage | 20% |
-| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 20% |
+| **Security & Compliance** | Secrets, vulnerabilities, auth patterns | 10% |
+| **Accessibility & Usability** | WCAG 2.1 AA, labels, ARIA, focus, non-text content | 10% |
 | **Performance** | Bundle size, lazy loading, optimization | 10% |
 | **Reliability** | Error tracking, retries, health checks | 10% |
 | **Dependencies & Supply Chain** | Lockfiles, pinned deps, SBOM | 10% |
@@ -285,12 +287,13 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 |------|---------------|----------------|
 | Security | ≥ 70 | No secrets, no critical vulnerabilities |
 | Testing | ≥ 70 | Adequate test coverage and quality |
+| Accessibility | ≥ 70 | WCAG 2.1 AA baseline: accessible forms, names, alt text |
 | Reliability | ≥ 60 | Error handling, health checks present |
 | Supply Chain | ≥ 50 | Dependencies pinned, lockfile present |
 
 If any gate fails, the command exits with code 1 — perfect for CI/CD pipelines.
 
-In addition to the four metric gates, `--strict` runs **test-quality analyzers** after the metric gates pass: *Caller Contract*, *Context Validation*, *Flaky Detection*, and *Mutation Score*. Each must also score ≥ 70 to pass. These are heavier (they spawn the project test suite) and only execute when the metric gates are green, so non-strict runs stay fast.
+In addition to the metric gates, `--strict` runs **test-quality analyzers** after the metric gates pass: *Caller Contract*, *Context Validation*, *Flaky Detection*, and *Mutation Score*. Each must also score ≥ 70 to pass. These are heavier (they spawn the project test suite) and only execute when the metric gates are green, so non-strict runs stay fast.
 
 ---
 
@@ -304,7 +307,7 @@ In addition to the four metric gates, `--strict` runs **test-quality analyzers**
 | `npx soloknuckle check` | Pre-flight: lint, test, typecheck, secret scan | Score report |
 | `npx soloknuckle check --fix` | Auto-fix issues (lint, tests, deps, git, CI, docs, supply chain, reliability) | Fixes applied |
 | `npx soloknuckle check --strict` | Enforce hard gates (exit code 1 on failure) | Pass/Fail per gate |
-| `npx soloknuckle score` | Project health 0–100 across 7 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 7-domain scorecard |
+| `npx soloknuckle score` | Project health 0–100 across 8 domains (`--suggest` appends AI suggestions, requires an LLM provider) | 8-domain scorecard |
 | `npx soloknuckle sbom` | Generate CycloneDX SBOM manifest | JSON SBOM file |
 | `npx soloknuckle compliance` | Self-audit against Soloknuckle's own standards (11 checks, incl. committed-`.env` detection) | Compliance report |
 | `npx soloknuckle telemetry` | AI vs human contribution stats | Stats report |

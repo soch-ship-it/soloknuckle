@@ -60,6 +60,7 @@ export interface ScoreMetrics {
 
 export type DomainName =
   | 'codeQuality' | 'testing' | 'securityCompliance'
+  | 'accessibilityUsability'
   | 'performance' | 'reliability' | 'dependenciesSupplyChain'
   | 'documentationVisibility';
 
@@ -70,8 +71,11 @@ export interface DomainScorecard {
   status: 'production-ready' | 'almost-there' | 'needs-work' | 'not-ready';
 }
 
-export interface SevenDomainScorecard {
+export interface EightDomainScorecard {
   domains: DomainScorecard[];
   overallScore: number;
   overallStatus: 'production-ready' | 'almost-there' | 'needs-work' | 'not-ready';
 }
+
+// Backward-compatible alias
+export type SevenDomainScorecard = EightDomainScorecard;
