@@ -4,6 +4,20 @@ All notable changes to Soloknuckle will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-10-04
+
+### Added
+
+- **8-Domain Scorecard Architecture** — elevated Accessibility & Usability to its own first-class dedicated top-level domain with 10% weight parity alongside Security, Performance, and Reliability
+- **Comprehensive WCAG 2.1 AA Engine** — static analysis checking for missing `alt` text, placeholder `alt` values, form `<input>` labels/IDs, accessible `<button>` names, ambiguous links, positive `tabIndex` anti-patterns, non-interactive `onClick` handlers, viewport zoom restrictions, and missing HTML `lang` attributes
+- **Accessibility Hard Gate** — added mandatory `accessibility >= 70` gate in strict mode (`--strict`) to block inaccessible commits before they reach production
+
+## [1.1.1] - 2026-09-26
+
+### Added
+
+- **Documentation & Agent Contract Hardening** — strict veto-by-contract for AI coding agents
+
 ## [1.1.0] - 2026-09-11
 
 ### Added
