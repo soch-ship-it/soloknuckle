@@ -104,7 +104,20 @@ describe('getQualityScore', () => {
     const result = getQualityScore();
     expect(result.score).toBe(50);
   });
+
+  it('deducts points for debugger statement and empty catch blocks', () => {
+    writePkg({ lint: 'eslint .' });
+    mockExecForLint('no errors');
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'bad.ts'), 'debugger;\ntry { doSomething(); } catch (e) {}\n');
+
+    const result = getQualityScore();
+    expect(result.score).toBe(85);
+    expect(result.rawOutput).toContain('Debugger statement');
+    expect(result.rawOutput).toContain('Empty catch block');
+  });
 });
+
 
 describe('getTestingScore', () => {
   beforeEach(() => {
@@ -203,6 +216,16 @@ describe('getSecurityScore', () => {
     const result = getSecurityScore();
     expect(result.score).toBe(100);
   });
+
+  it('scans static workspace for SAST issues when diff is clean', () => {
+    mockExecForSecurity('');
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'vuln.ts'), 'const result = eval(userPayload);\n');
+
+    const result = getSecurityScore();
+    expect(result.score).toBe(75);
+    expect(result.rawOutput).toContain('[SAST]');
+  });
 });
 
 describe('getEfficiencyScore', () => {
@@ -236,6 +259,15 @@ describe('getEfficiencyScore', () => {
     expect(result.rawOutput).toContain('deep nesting');
   });
 
+  it('deducts 10 for sequential await in a loop', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'asyncLoop.ts'), 'for (const item of items) { await processItem(item); }\n');
+
+    const result = getEfficiencyScore();
+    expect(result.score).toBe(90);
+    expect(result.rawOutput).toContain("sequential 'await'");
+  });
+
   it('skips node_modules and .git', () => {
     fs.mkdirSync(path.join(tmpDir, 'node_modules', 'pkg'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'node_modules', 'pkg', 'big.ts'), Array(600).fill('x').join('\n'));
@@ -246,6 +278,7 @@ describe('getEfficiencyScore', () => {
     expect(result.score).toBe(100);
   });
 });
+
 
 describe('getAccessibilityScore', () => {
   beforeEach(() => {
