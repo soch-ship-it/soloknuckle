@@ -89,7 +89,7 @@ One command. Zero config. No API key. Every check runs **locally**, on **Node.js
 | **Feature flags** | Versioned `flags.json` + 9-tool MCP control from chat | Engine: `check.ts` + `mcp-server.ts` + `rollback.ts` |
 | **SBOM + compliance** | CycloneDX manifests + an 11-check self-audit against Soloknuckle's own standards | Engine: `sbom.ts`, `compliance.ts` |
 
-That's **13 scoring dimensions across 7 domains**, **29 test suites (494 tests)** proving the product on itself, and **11/11 compliance checks passing on the repo you're reading right now**.
+That's **13 scoring dimensions across 8 domains**, **29 test suites (511 tests)** proving the product on itself, and **11/11 compliance checks passing on the repo you're reading right now**.
 
 And the whole thing is a single surface that speaks your stack's language:
 
@@ -115,7 +115,8 @@ This is not a linter with a nicer logo. It is the **quality infrastructure of an
 - **It's the same standard everywhere.** CLI, CI gate, MCP tool, shell guard, and webhook all run the *same engine* on the *same machine* — so an agent and a human can never disagree on "ready to ship."
 - **It's free.** The platform-team depth runs locally, open source (ISC). The only optional costs are cloud LLM keys you bring for `audit`/`pr` — or a local Ollama at $0.
 
-**Proof it works:** this repository scores **94/100** under its own seven-domain scorecard, passes **11/11** of its own compliance checks, ships **494 tests**, and — like every release — was published only with the owner's two-factor authentication.
+**Proof it works:** this repository scores **95/100** under its own 8-domain scorecard, passes **11/11** of its own compliance checks, ships **511 tests**, and — like every release — was published only with the owner's two-factor authentication.
+
 
 ---
 
@@ -255,7 +256,7 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 ┌────────────────────────────────────────────────────────┐
 │  8-Domain Scorecard                                    │
 │                                                        │
-│  Code Quality             85  ██████████████░░         │
+│  Code Quality             90  ██████████████░░         │
 │  Testing                 100  ████████████████         │
 │  Security & Compliance   100  ████████████████         │
 │  Accessibility & Usability 100  ████████████████       │
@@ -266,6 +267,7 @@ Without MCP this is a *hope*: "the agent will be careful." With MCP it's a *cont
 │                                                        │
 │  Overall: 95/100 — Production Ready ✓                  │
 └────────────────────────────────────────────────────────┘
+
 ```
 
 | Domain | What It Checks | Weight |
@@ -470,7 +472,8 @@ Found a security vulnerability? Please report it privately — see [SECURITY.md]
 | **Solo founders** | No QA team, shipping fast with AI | Pre-flight gate catches what AI misses before it ships |
 | **AI-assisted teams** | Don't know how much code is AI-written | Telemetry tracks AI vs human contributions per week |
 | **Open-source maintainers** | Contributors submit AI-generated code | `--strict` enforces quality gates in CI |
-| **Agencies & consultancies** | Client projects must be production-ready | 7-domain scorecard proves quality with numbers |
+| **Agencies & consultancies** | Client projects must be production-ready | 8-domain scorecard proves quality with numbers |
+
 | **Engineering leaders** | Can't justify spend on flakes & regressions | Dollar-priced flake costs + attributable AI-vs-human measurement |
 | **Platform/infra teams** | Agents doing damage across many repos | One local engine: CI gate, MCP tools, hooks, shell guard, webhooks |
 
@@ -531,7 +534,8 @@ soloknuckle/
 │   ├── scanner.ts            # Secret detection engine (scanTextForSecrets + diffs)
 │   ├── interceptor.ts        # Command firewall
 │   ├── shell-guard.ts        # Optional shell wrapper generator (guard-install)
-│   ├── scorer/               # Project health scoring (13 dimensions, 7 domains)
+│   ├── scorer/               # Project health scoring (13 dimensions, 8 domains)
+
 │   ├── gates.ts              # Hard gate evaluation + scorecard
 │   ├── mutation.ts           # Mutation testing gate
 │   ├── context-validator.ts  # Context-aware test validator
